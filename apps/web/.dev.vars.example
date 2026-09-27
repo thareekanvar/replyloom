@@ -1,0 +1,17 @@
+# Copy to apps/web/.dev.vars for local dev (never commit .dev.vars).
+# Generate secrets with: openssl rand -base64 32
+
+BETTER_AUTH_SECRET=
+# Local override so session cookies aren't marked Secure on http://localhost.
+BETTER_AUTH_URL=http://localhost:3000
+
+# Must match apps/worker/.dev.vars
+ENGINE_INTERNAL_SECRET=
+WS_TOKEN_SECRET=
+
+# Local dev only: vite dev can't resolve the WA_WORKER service binding.
+# Never set this in production.
+ENGINE_LOCAL_URL=http://localhost:8787
+
+# Optional: invitation emails are only sent when this is set (https://resend.com/api-keys)
+#RESEND_API_KEY=

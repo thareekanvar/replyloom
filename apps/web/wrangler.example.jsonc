@@ -1,0 +1,83 @@
+// TEMPLATE — copied to wrangler.jsonc (gitignored) by `pnpm install` /
+// `pnpm setup`. Edit wrangler.jsonc, not this file. `pnpm setup` fills in
+// the D1/KV ids; set the URLs to your own domains before deploying.
+// account_id is intentionally absent: wrangler uses `wrangler login` or
+// the CLOUDFLARE_ACCOUNT_ID env var.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "whatsapp-ai-web",
+  "compatibility_date": "2026-09-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "src/server.ts",
+  "observability": {
+    "enabled": true
+  },
+  "services": [
+    // Keep the worker service local during development. The worker's
+    // Vectorize bindings are configured as remote below in its own config.
+    { "binding": "WA_WORKER", "service": "wa-cf-poc" }
+  ],
+  // Same physical D1 database as apps/worker — keep both ids in sync.
+  // D1 is "remote" (not the default local sqlite emulation) so apps/web and
+  // apps/worker -- two separate local processes -- see the SAME database in
+  // dev. Sharing a local sqlite file between them via wrangler's
+  // --persist-to corrupts it (two processes writing to one file with no
+  // coordination); routing both through the real Cloudflare D1 API instead
+  // avoids that entirely and matches how they already share it in
+  // production. This does mean local dev reads/writes your actual D1
+  // database, not an isolated local copy.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "whatsapp-ai", "database_id": "REPLACE_WITH_D1_DATABASE_ID", "migrations_dir": "../../packages/db/migrations", "remote": true }
+  ],
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "whatsapp-ai-media" }
+  ],
+  "vars": {
+    // Public base URL Better Auth uses for cookies/redirects. BETTER_AUTH_SECRET
+    // is intentionally NOT here — set it locally via .dev.vars and in prod via
+    // `wrangler secret put BETTER_AUTH_SECRET`.
+    "BETTER_AUTH_URL": "http://localhost:3000",
+    // NOTE: this does NOT reach the browser bundle. `import.meta.env.*` is
+    // resolved by Vite at BUILD time from .env files (apps/web/.env.production
+    // for `vite build` / deploys, .env.development for `vite dev`) -- Cloudflare
+    // "vars" are only injected into the Worker's server-side runtime `env`,
+    // which client code never sees. This entry is kept only in case some
+    // future server-side code wants the engine's public URL; the value the
+    // browser actually gets is apps/web/.env.production's VITE_ENGINE_URL --
+    // keep both in sync by hand.
+    "VITE_ENGINE_URL": "http://localhost:8787",
+    // Sender address for team-invite emails (see src/lib/resend.ts). Change
+    // this to a domain you've verified with Resend before going to
+    // production — "onboarding@resend.dev" only works in Resend's sandbox.
+    "RESEND_FROM_EMAIL": "onboarding@resend.dev"
+    // RESEND_API_KEY is intentionally NOT here — same pattern as
+    // BETTER_AUTH_SECRET: set it locally via .dev.vars and in prod via
+    // `wrangler secret put RESEND_API_KEY`. Invites still get created
+    // without it, the email is just skipped (logged server-side).
+  },
+  // Rate limiting for the web app Worker (CRM), enforced in src/server.ts
+  // per client IP (Cloudflare's limiter is per-location, eventually
+  // consistent -- a brake on abuse, not an exact quota).
+  //  - WEB_RATE_LIMITER: all server-function + /api traffic. Generous: a
+  //    single inbox load fans out to ~10-20 calls and offices share NAT IPs.
+  //  - AUTH_RATE_LIMITER: sign-in / sign-up / password-reset POSTs only
+  //    (credential stuffing + email-bombing brake).
+  "ratelimits": [
+    {
+      "name": "WEB_RATE_LIMITER",
+      "namespace_id": "2001",
+      "simple": {
+        "limit": 600,
+        "period": 60
+      }
+    },
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "2002",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ]
+}

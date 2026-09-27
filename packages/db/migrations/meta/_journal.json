@@ -1,0 +1,223 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789697547070,
+      "tag": "0000_dusty_nighthawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789712616795,
+      "tag": "0001_fresh_moondragon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789715861264,
+      "tag": "0002_flaky_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789716108011,
+      "tag": "0003_smart_surge",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789748541239,
+      "tag": "0004_kind_catseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789749622632,
+      "tag": "0005_fixed_ares",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789760000000,
+      "tag": "0006_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1789761000000,
+      "tag": "0007_media_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789760060664,
+      "tag": "0008_modern_newton_destine",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1789760298048,
+      "tag": "0009_puzzling_blue_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1789792236556,
+      "tag": "0010_famous_rocket_raccoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1789793892471,
+      "tag": "0011_wild_young_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1789797896019,
+      "tag": "0012_oval_scourge",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1789837575268,
+      "tag": "0013_spicy_hairball",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1789838985590,
+      "tag": "0014_odd_shocker",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1789884332184,
+      "tag": "0015_add_contact_blocked",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1789912821088,
+      "tag": "0016_cheerful_changeling",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1789913705146,
+      "tag": "0017_jazzy_xorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1789929502266,
+      "tag": "0018_condemned_nekra",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1789965024954,
+      "tag": "0019_fast_mephistopheles",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1789966480284,
+      "tag": "0020_big_klaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1790151713220,
+      "tag": "0024_broadcast_contact_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1790413650466,
+      "tag": "0025_unread_inbound_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1790414517899,
+      "tag": "0026_scale_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1790415148503,
+      "tag": "0027_list_added_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1790416031677,
+      "tag": "0028_keyset_pagination",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1790425183891,
+      "tag": "0029_templates_keyset",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1790425257835,
+      "tag": "0030_deals_keyset",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1790426014468,
+      "tag": "0031_entity_counts",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1790427136866,
+      "tag": "0032_webhook_retention",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1790430572129,
+      "tag": "0033_tenant_rule_indexes",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "patch-package",
+    "test": "vitest run",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@sentry/cloudflare": "^10.75.0",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "@workspace/db": "workspace:*",
+    "pino": "^9.6.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260916.1",
+    "@tanstack/eslint-config": "^0.4.0",
+    "eslint": "^9",
+    "patch-package": "^8.0.1",
+    "typescript": "^5.7.0",
+    "vitest": "^5.0.1",
+    "wrangler": "^4.133.0"
+  }
+}

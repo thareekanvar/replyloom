@@ -1,0 +1,1 @@
+ALTER TABLE `agent_configs` ADD `system_prompt` text;

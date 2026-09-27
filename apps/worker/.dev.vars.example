@@ -1,0 +1,5 @@
+# Copy to apps/worker/.dev.vars for local dev (never commit .dev.vars).
+# Both values must match apps/web/.dev.vars.
+
+ENGINE_INTERNAL_SECRET=
+WS_TOKEN_SECRET=

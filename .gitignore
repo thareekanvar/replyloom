@@ -1,0 +1,28 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+.env*
+# Templates + dev defaults are tracked; the real per-deployment files
+# (.env.production, wrangler.jsonc) are generated from the templates by
+# `pnpm install` / `pnpm setup` and stay local. See scripts/config.mjs.
+!.env.*.example
+!.env.development
+apps/*/wrangler.jsonc
+# local config backup (pnpm config:backup) — never committed
+.config-backup/
+.tanstack
+.wrangler
+.output
+.vinxi
+__unconfig*
+todos.json
+
+# turbo
+.turbo
+
+# typescript
+*.tsbuildinfo
+worker-configuration.d.ts
+.dev.vars

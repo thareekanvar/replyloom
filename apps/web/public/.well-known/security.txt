@@ -1,0 +1,5 @@
+# Self-hosting a fork? Point these at your own repo / contact.
+Contact: https://github.com/thareekanvar/replyloom/security/advisories/new
+Preferred-Languages: en
+Policy: https://github.com/thareekanvar/replyloom/security/policy
+Expires: 2027-09-27T00:00:00.000Z

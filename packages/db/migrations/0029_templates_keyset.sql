@@ -1,0 +1,1 @@
+CREATE INDEX `templates_workspace_updated_idx` ON `templates` (`workspace_id`,updated_at DESC,id DESC);

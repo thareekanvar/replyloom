@@ -1,0 +1,5 @@
+-- No-op: drizzle-kit generate emitted this as 0008 because the snapshots for
+-- the hand-written 0006 (templates) and 0007 (media_assets) migrations don't
+-- exist, so it re-diffed from the stale 0005 snapshot. The tables are already
+-- created by 0006/0007 above. This empty migration only exists to carry the
+-- regenerated 0008_snapshot.json, keeping future `pnpm generate` diffs in sync.

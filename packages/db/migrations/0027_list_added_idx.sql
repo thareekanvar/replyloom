@@ -1,0 +1,1 @@
+CREATE INDEX `contact_list_members_list_added_idx` ON `contact_list_members` (`list_id`,`added_at`);

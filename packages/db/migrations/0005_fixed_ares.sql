@@ -1,0 +1,1 @@
+ALTER TABLE `messages` ADD `media_meta` text;

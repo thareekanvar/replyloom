@@ -1,0 +1,1 @@
+CREATE INDEX `messages_workspace_wa_message_idx` ON `messages` (`workspace_id`,`wa_message_id`);

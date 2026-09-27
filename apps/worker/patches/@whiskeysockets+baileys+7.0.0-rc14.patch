@@ -1,0 +1,56 @@
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
+index f2003ac..0000001 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js
+@@ -359,7 +359,12 @@ export const makeMessagesRecvSocket = (config) => {
+         }
+     };
+     const sendMessageAck = async (node, errorCode) => {
+-        const stanza = buildAckStanza(node, errorCode, authState.creds.me.id);
++        // companion_reg_refresh arrives before creds.me is populated.
++        // WA requires its ACK to finalize QR pairing - skipping it causes
++        // the phone to show "check your network". Use a fallback id so the
++        // ack is delivered without crashing on undefined creds.me.id.
++        const meId = authState.creds.me?.id || '0@s.whatsapp.net';
++        const stanza = buildAckStanza(node, errorCode, meId);
+         logger.debug({ recv: { tag: node.tag, attrs: node.attrs }, sent: stanza.attrs }, 'sent ack');
+         await sendNode(stanza);
+     };
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js b/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js
+index 5534efc..f0ef601 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js
+@@ -1,4 +1,5 @@
+ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'crypto';
++import { gcm } from '@noble/ciphers/aes.js';
+ import * as curve from 'libsignal/src/curve.js';
+ import { KEY_BUNDLE_TYPE } from '../Defaults/index.js';
+ export { md5, hkdf } from 'whatsapp-rust-bridge';
+@@ -42,23 +43,16 @@ const GCM_TAG_LENGTH = 128 >> 3;
+  * where the tag tag is suffixed to the ciphertext
+  * */
+ export function aesEncryptGCM(plaintext, key, iv, additionalData) {
+-    const cipher = createCipheriv('aes-256-gcm', key, iv);
+-    cipher.setAAD(additionalData);
+-    return Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
++    const cipher = gcm(key, iv, additionalData && additionalData.length ? additionalData : undefined);
++    return Buffer.from(cipher.encrypt(plaintext));
+ }
+ /**
+  * decrypt AES 256 GCM;
+  * where the auth tag is suffixed to the ciphertext
+  * */
+ export function aesDecryptGCM(ciphertext, key, iv, additionalData) {
+-    const decipher = createDecipheriv('aes-256-gcm', key, iv);
+-    // decrypt additional adata
+-    const enc = ciphertext.slice(0, ciphertext.length - GCM_TAG_LENGTH);
+-    const tag = ciphertext.slice(ciphertext.length - GCM_TAG_LENGTH);
+-    // set additional data
+-    decipher.setAAD(additionalData);
+-    decipher.setAuthTag(tag);
+-    return Buffer.concat([decipher.update(enc), decipher.final()]);
++    const decipher = gcm(key, iv, additionalData && additionalData.length ? additionalData : undefined);
++    return Buffer.from(decipher.decrypt(ciphertext));
+ }
+ export function aesEncryptCTR(plaintext, key, iv) {
+     const cipher = createCipheriv('aes-256-ctr', key, iv);

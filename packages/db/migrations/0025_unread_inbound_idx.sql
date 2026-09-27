@@ -1,0 +1,1 @@
+CREATE INDEX `messages_unread_inbound_idx` ON `messages` (`conversation_id`,`created_at`) WHERE "messages"."direction" = 'in' AND "messages"."status" <> 'read';

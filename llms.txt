@@ -1,0 +1,11 @@
+# Replyloom
+
+> Replyloom is a free, open-source (MIT), self-hosted WhatsApp CRM that runs entirely on Cloudflare (Workers, Durable Objects, D1, R2, Queues, Vectorize). It gives teams a shared WhatsApp inbox, multiple numbers per workspace, contacts and a deal pipeline, opt-in list broadcasts with anti-spam limits, scheduled messages, keyword auto-replies, webhooks, an API and an optional RAG AI support agent. It connects as a WhatsApp linked device through the unofficial Baileys library. It is not affiliated with WhatsApp or Meta, and numbers can be banned.
+
+## Docs
+- [README](README.md): overview, features, quick start, FAQ
+- [Architecture](ARCHITECTURE.md): how the two Workers, Durable Objects and D1 fit together
+- [Deploy guide](DEPLOY.md): Cloudflare setup, CI, backups, monitoring
+- [Disclaimer](DISCLAIMER.md): unofficial client, ban risk, responsible use
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md) and [agent guide](AGENTS.md)

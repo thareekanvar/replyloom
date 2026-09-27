@@ -1,0 +1,147 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F2EEE5;--ink:#121412;--mute:#6B6A63;--line:#D9D3C6;--blue:#2E4BFF;--amber:#FFB224;--mint:#BFE8D2;--card:#FFFFFF}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:640px;overflow:hidden}
+body{background:var(--bg);font-family:"Inter Tight",sans-serif;color:var(--ink);position:relative}
+/* faint dot grid */
+body:before{content:"";position:absolute;inset:0;background-image:radial-gradient(#cfc8b8 1px,transparent 1px);background-size:24px 24px;opacity:.55;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 55%,#000 100%);mask-image:linear-gradient(90deg,transparent 0%,#000 55%,#000 100%)}
+.left{position:absolute;left:72px;top:64px;width:600px;height:512px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:22px;letter-spacing:-.02em}
+.mark{width:34px;height:34px;border-radius:9px;background:var(--ink);display:grid;place-items:center}
+.tag{margin-left:10px;font:500 12px "JetBrains Mono",monospace;letter-spacing:.02em;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:5px 10px;background:#F7F4EC}
+h1{margin-top:58px;font-weight:700;font-size:78px;line-height:.98;letter-spacing:-.045em}
+h1 em{font-family:"Instrument Serif",serif;font-style:italic;font-weight:400;letter-spacing:-.02em;font-size:88px;color:var(--blue)}
+.sub{margin-top:26px;font-size:21px;line-height:1.4;color:#3a3a36;max-width:500px;letter-spacing:-.01em}
+.sub b{font-weight:600;color:var(--ink)}
+.foot{margin-top:auto;display:flex;align-items:center;gap:10px}
+.chip{font-size:14px;font-weight:600;padding:8px 13px;border-radius:999px;background:var(--ink);color:#F2EEE5;letter-spacing:-.01em}
+.chip.o{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.repo{margin-left:14px;font:500 13px "JetBrains Mono",monospace;color:var(--mute);display:flex;align-items:center;gap:7px}
+
+/* right composition */
+.stage{position:absolute;left:700px;top:0;width:580px;height:640px}
+svg.threads{position:absolute;inset:0}
+.inbox{position:absolute;left:78px;top:92px;width:400px;background:var(--card);border-radius:22px;border:1px solid #E4DED1;
+  box-shadow:0 1px 0 #fff inset,0 30px 60px -28px rgba(30,25,10,.28),0 8px 18px -10px rgba(30,25,10,.12);padding:18px 18px 10px}
+.ih{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ih .t{font-weight:700;font-size:17px;letter-spacing:-.02em}
+.tabs{display:flex;gap:6px}
+.tabs span{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;background:#F2EEE5;color:var(--mute)}
+.tabs span.on{background:var(--ink);color:#fff}
+.row{display:flex;align-items:center;gap:12px;padding:11px 8px;border-radius:14px}
+.row.sel{background:#EEF1FF}
+.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:14px;flex:none}
+.meta{flex:1;min-width:0}
+.nm{display:flex;justify-content:space-between;font-weight:600;font-size:14.5px;letter-spacing:-.01em}
+.nm i{font-style:normal;font-weight:500;font-size:11.5px;color:var(--mute)}
+.sn{font-size:13px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;display:flex;justify-content:space-between;gap:8px}
+.sn span{overflow:hidden;text-overflow:ellipsis}
+.badge{flex:none;min-width:20px;height:20px;border-radius:10px;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;padding:0 6px}
+.num{font:500 10px "JetBrains Mono",monospace;color:#8c8a80;border:1px solid #E6E0D3;border-radius:6px;padding:1px 5px;margin-left:6px;vertical-align:1px}
+
+.ai{position:absolute;left:250px;top:430px;width:290px;background:var(--ink);color:#F2EEE5;border-radius:18px;padding:14px 16px;
+  box-shadow:0 24px 40px -18px rgba(0,0,0,.45)}
+.ai .h{display:flex;align-items:center;gap:8px;font:500 11px "JetBrains Mono",monospace;color:#A9A79E;letter-spacing:.02em}
+.dot{width:7px;height:7px;border-radius:50%;background:#6CE3A4;box-shadow:0 0 0 3px rgba(108,227,164,.18)}
+.ai p{margin-top:8px;font-size:14px;line-height:1.4;letter-spacing:-.01em}
+.ai .src{margin-top:10px;display:flex;gap:6px}
+.ai .src span{font:500 10.5px "JetBrains Mono",monospace;background:#23261F;color:#C9C6BB;border-radius:6px;padding:3px 7px}
+
+.deal{position:absolute;left:18px;top:470px;width:200px;background:var(--amber);border-radius:16px;padding:13px 15px;transform:rotate(-4deg);
+  box-shadow:0 18px 30px -16px rgba(120,70,0,.45)}
+.deal .k{font:500 10.5px "JetBrains Mono",monospace;letter-spacing:.04em;opacity:.7}
+.deal .v{font-weight:800;font-size:24px;letter-spacing:-.03em;margin-top:2px}
+.deal .s{font-size:12px;font-weight:600;margin-top:4px;display:flex;gap:6px;align-items:center}
+.bar{height:5px;border-radius:3px;background:rgba(0,0,0,.14);margin-top:9px;overflow:hidden}.bar i{display:block;height:100%;width:68%;background:var(--ink)}
+
+.sticker{position:absolute;left:452px;top:34px;width:92px;height:92px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;text-align:center;
+  transform:rotate(12deg);font-weight:800;font-size:13px;line-height:1.05;letter-spacing:-.01em;box-shadow:0 14px 24px -12px rgba(46,75,255,.7)}
+.sticker small{display:block;font:500 9.5px "JetBrains Mono",monospace;opacity:.8;margin-top:3px;letter-spacing:.04em}
+</style></head>
+<body>
+<div class="left">
+  <div class="brand">
+    <div class="mark">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <!-- woven mark: 3 vertical + 3 horizontal threads, over-under -->
+        <g stroke-linecap="round" stroke-width="3.2">
+          <path d="M5 2v18" stroke="#F2EEE5"/><path d="M11 2v18" stroke="#F2EEE5"/><path d="M17 2v18" stroke="#F2EEE5"/>
+          <path d="M2 5h5.5M10 5h2M14.5 5h5.5" stroke="#2E4BFF"/>
+          <path d="M2 11h1M7.5 11h7M19 11h1" stroke="#FFB224"/>
+          <path d="M2 17h5.5M10 17h2M14.5 17h5.5" stroke="#2E4BFF"/>
+        </g>
+      </svg>
+    </div>
+    Replyloom
+    <span class="tag">OPEN SOURCE · MIT</span>
+  </div>
+  <h1>Every chat,<br><em>woven</em> into one<br>team inbox.</h1>
+  <p class="sub">The self-hosted <b>WhatsApp CRM</b> that runs entirely on Cloudflare. Multiple numbers, a deal pipeline and an AI agent. No servers, no per-seat fees.</p>
+  <div class="foot">
+    <span class="chip">Self-hosted</span>
+    <span class="chip o">Multi-number</span>
+    <span class="chip o">AI agent</span>
+    <span class="repo">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="#6B6A63"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      thareekanvar/replyloom
+    </span>
+  </div>
+</div>
+
+<div class="stage">
+  <svg class="threads" viewBox="0 0 580 640" fill="none">
+    <!-- threads entering from the edge and running into inbox rows -->
+    <g stroke-width="2.2" stroke-linecap="round" opacity=".9">
+      <path d="M600 40 C 520 60, 520 150, 478 175" stroke="#2E4BFF"/>
+      <path d="M600 250 C 540 250, 520 240, 478 240" stroke="#FFB224"/>
+      <path d="M600 420 C 540 400, 520 320, 478 305" stroke="#121412"/>
+      <path d="M600 600 C 520 600, 530 400, 478 370" stroke="#2E4BFF" stroke-dasharray="1 7"/>
+    </g>
+    <g fill="#F2EEE5" stroke-width="2.2">
+      <circle cx="478" cy="175" r="4.5" stroke="#2E4BFF"/>
+      <circle cx="478" cy="240" r="4.5" stroke="#FFB224"/>
+      <circle cx="478" cy="305" r="4.5" stroke="#121412"/>
+      <circle cx="478" cy="370" r="4.5" stroke="#2E4BFF"/>
+    </g>
+  </svg>
+
+  <div class="inbox">
+    <div class="ih"><div class="t">Inbox</div><div class="tabs"><span class="on">All 128</span><span>Unread 6</span></div></div>
+    <div class="row sel">
+      <div class="av" style="background:#DCE2FF;color:#2E4BFF">MA</div>
+      <div class="meta"><div class="nm">Maya Alvarez<i>09:42</i></div><div class="sn"><span>Is the Pro plan still on offer this week?</span><b class="badge">2</b></div></div>
+    </div>
+    <div class="row">
+      <div class="av" style="background:#FFE8BF;color:#9A5B00">KO</div>
+      <div class="meta"><div class="nm"><span>Kofi Owusu<span class="num">SALES</span></span><i>09:31</i></div><div class="sn"><span>Sent the signed quote 👍</span><b class="badge">1</b></div></div>
+    </div>
+    <div class="row">
+      <div class="av" style="background:#121412;color:#F2EEE5">LT</div>
+      <div class="meta"><div class="nm"><span>Lisbon Team<span class="num">GROUP</span></span><i>09:05</i></div><div class="sn"><span>Rui: pushing the launch to Friday</span></div></div>
+    </div>
+    <div class="row">
+      <div class="av" style="background:#BFE8D2;color:#0B5B33">SN</div>
+      <div class="meta"><div class="nm"><span>Sara Novak<span class="num">SUPPORT</span></span><i>Tue</i></div><div class="sn"><span>Thanks, that fixed it!</span></div></div>
+    </div>
+  </div>
+
+  <div class="sticker"><div>3 numbers<small>ONE INBOX</small></div></div>
+
+  <div class="deal">
+    <div class="k">PIPELINE · PROPOSAL</div>
+    <div class="v">$4,800</div>
+    <div class="s">Kofi Owusu · 3 days</div>
+    <div class="bar"><i></i></div>
+  </div>
+
+  <div class="ai">
+    <div class="h"><span class="dot"></span>AI AGENT · REPLIED IN 2s</div>
+    <p>Yes. Pro is 20% off until Sunday. Want me to send the checkout link?</p>
+    <div class="src"><span>pricing.md</span><span>offers.md</span></div>
+  </div>
+</div>
+</body></html>

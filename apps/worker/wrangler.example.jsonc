@@ -1,0 +1,121 @@
+// TEMPLATE — copied to wrangler.jsonc (gitignored) by `pnpm install` /
+// `pnpm setup`. Edit wrangler.jsonc, not this file. `pnpm setup` fills in
+// the D1/KV ids; set the URLs to your own domains before deploying.
+// account_id is intentionally absent: wrangler uses `wrangler login` or
+// the CLOUDFLARE_ACCOUNT_ID env var.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wa-cf-poc",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "alias": {
+    "ws": "./src/compat/ws-shim.ts"
+  },
+  "vars": {
+    // AI Gateway id for every model call (classifier, generator, embeddings).
+    // Leave as "default" to use the account's auto-provisioned gateway; set a
+    // named gateway once you create one in the dashboard.
+    "AIG_GATEWAY_ID": "default",
+    // CORS origin(s): comma-separated browser origins allowed to call this worker
+    // cross-origin (apps/web, incl. its WebSocket upgrade). Defaults to "*"
+    // (dev only) when unset -- for production set it here or with
+    // `wrangler secret put CORS_ORIGIN`. Must include the scheme.
+    "CORS_ORIGIN": "http://localhost:3000"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "WHATSAPP_SESSION", "class_name": "WhatsAppSession" },
+      { "name": "SCHEDULER", "class_name": "Scheduler" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["WhatsAppSession"] },
+    // Stateless DO (reads due-work out of D1, never stores DO-local state).
+    { "tag": "v2", "new_classes": ["Scheduler"] }
+  ],
+  // Shared with apps/web — both Workers must point at the SAME database_id.
+  // Create it once with `wrangler d1 create whatsapp-ai` after `wrangler login`,
+  // then paste the id here and in apps/web/wrangler.jsonc.
+  // D1 is "remote" (not the default local sqlite emulation) so apps/web and
+  // apps/worker -- two separate local processes -- see the SAME database in
+  // dev. Sharing a local sqlite file between them via wrangler's
+  // --persist-to corrupts it (two processes writing to one file with no
+  // coordination); routing both through the real Cloudflare D1 API instead
+  // avoids that entirely and matches how they already share it in
+  // production. This does mean local dev reads/writes your actual D1
+  // database, not an isolated local copy.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "whatsapp-ai", "database_id": "REPLACE_WITH_D1_DATABASE_ID", "migrations_dir": "../../packages/db/migrations", "remote": true }
+  ],
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "whatsapp-ai-media" }
+  ],
+  // Anti-ban broadcast dispatch: each recipient is enqueued once with a
+  // staggered delaySeconds (see src/broadcast.ts) instead of blasting the
+  // whole list at once. Create once with `wrangler queues create wa-broadcast-dispatch`.
+  "queues": {
+    "producers": [
+      { "queue": "wa-broadcast-dispatch", "binding": "BROADCAST_QUEUE" }
+    ],
+    "consumers": [
+      { "queue": "wa-broadcast-dispatch", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5 }
+    ]
+  },
+  // Recovery sweep only: scheduled_messages / scheduled campaigns / webhook
+  // retries are normally fired by the Scheduler Durable Object's alarm (see
+  // src/scheduler.ts). The cron just re-arms the Scheduler so a missed poke
+  // from apps/web is picked up within five minutes. Kept at */5 instead of
+  // every minute so idle time costs 288 daily requests, not 1,440.
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  // Semantic search over message history: bge-m3 embeddings (Workers AI)
+  // upserted into a Vectorize index as each message is synced. Create the
+  // index once with:
+  //   wrangler vectorize create wa-messages --dimensions=1024 --metric=cosine
+  "ai": {
+    "binding": "AI"
+  },
+  "vectorize": [
+    { "binding": "VECTORIZE", "index_name": "wa-messages", "remote": true },
+    // AI agent grounding (RAG): doc chunks embedded with bge-m3 (1024-dim,
+    // cosine) and filtered per workspace. Create once with:
+    //   wrangler vectorize create wa-docs --dimensions=1024 --metric=cosine
+    { "binding": "AGENT_VECTORIZE", "index_name": "wa-docs", "remote": true }
+  ],
+  // Cheap per-message cache for the AI agent: exact-match FAQ answers (so
+  // repeated questions cost ~0 tokens) and a short-lived copy of each
+  // workspace's agent config. Create once with:
+  //   wrangler kv namespace create REPLY_CACHE
+  // then paste the returned id below (pnpm setup does this for you).
+  "kv_namespaces": [
+    { "binding": "REPLY_CACHE", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+  ],
+  // Rate limiting via Cloudflare's built-in Rate Limiting API.
+  // Requires wrangler 4.36.0+ and a paid Workers plan.
+  // Configure different limits for different endpoint types.
+  "ratelimits": [
+    {
+      // General API rate limit: 100 requests per minute per IP
+      "name": "API_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 100,
+        "period": 60
+      }
+    },
+    {
+      // Auth endpoints: stricter limit to prevent brute force
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "1002",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "name": "whatsapp-ai",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "format": "turbo format",
+    "typecheck": "turbo typecheck",
+    "postinstall": "node scripts/config.mjs",
+    "config:backup": "node scripts/config.mjs --backup",
+    "config:restore": "node scripts/config.mjs --restore",
+    "setup": "bash scripts/setup.sh",
+    "deploy": "bash scripts/deploy.sh",
+    "seed:demo": "node scripts/seed-demo.mjs"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.3",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "turbo": "^2.9.18",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss",
+      "unrs-resolver",
+      "workerd",
+      "protobufjs",
+      "@whiskeysockets/baileys"
+    ],
+    "overrides": {
+      "esbuild": ">=0.28.1",
+      "postcss": ">=8.5.23",
+      "js-yaml": ">=4.3.2",
+      "nanoid": ">=5.1.6",
+      "baseline-browser-mapping": ">=2.11.0",
+      "@opentelemetry/core": ">=2.8.0",
+      "browserslist": ">=4.28.7"
+    }
+  }
+}

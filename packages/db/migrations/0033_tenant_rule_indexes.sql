@@ -1,0 +1,2 @@
+CREATE INDEX `access_rules_workspace_scope_idx` ON `access_rules` (`workspace_id`,`scope`);--> statement-breakpoint
+CREATE INDEX `auto_reply_workspace_enabled_idx` ON `auto_reply_rules` (`workspace_id`,`enabled`,`priority`);

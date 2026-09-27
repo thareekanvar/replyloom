@@ -1,0 +1,14 @@
+-- Before this fix, parseBaileysMessage only excluded the literal
+-- "status@broadcast" JID, and contacts.upsert/messaging-history.set syncing
+-- had no @broadcast guard at all -- so a WhatsApp broadcast list
+-- (<creation-timestamp>@broadcast) could get synced as a real "contact"
+-- (with a bogus phone number minted from its timestamp) and, once any
+-- message touched it, a "conversation" that showed up in the inbox looking
+-- like an ordinary 1:1 chat. See https://baileys.wiki/features/broadcasts-stories
+-- and the matching code fix in db/sync/messages.ts / session/contact-events.ts.
+--
+-- contacts.id cascades (ON DELETE CASCADE) to conversations.contact_id and
+-- from there to messages.conversation_id, so removing the phantom contact
+-- rows here also removes whatever fake conversation/message rows they'd
+-- already accumulated.
+DELETE FROM `contacts` WHERE `jid` LIKE '%@broadcast';

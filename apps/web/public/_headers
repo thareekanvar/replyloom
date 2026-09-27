@@ -1,0 +1,11 @@
+# Cloudflare static-asset headers (served before the Worker runs).
+# Vite emits content-hashed filenames under /assets, so they never change.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
