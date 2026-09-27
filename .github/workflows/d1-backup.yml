@@ -1,0 +1,43 @@
+name: D1 Backup
+
+# Nightly export of the production D1 database to R2, since D1 has no
+# built-in automatic backups (see DEPLOY.md). Runs independently of the
+# CI/deploy pipeline so a failing app build never blocks a backup.
+on:
+  schedule:
+    - cron: "0 3 * * *" # 03:00 UTC daily
+  workflow_dispatch: {} # allow a manual run from the Actions tab
+
+jobs:
+  backup:
+    name: Export D1 to R2
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # wrangler resolves the database id from wrangler.jsonc, which isn't in
+      # the repo — render it (see scripts/config.mjs and ci.yml's deploy job).
+      - name: Render deploy config
+        run: node scripts/config.mjs --from-env
+        env:
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          KV_NAMESPACE_ID: ${{ secrets.KV_NAMESPACE_ID }}
+          APP_URL: ${{ vars.APP_URL }}
+          ENGINE_URL: ${{ vars.ENGINE_URL }}
+      - name: Export database
+        working-directory: apps/worker
+        run: |
+          set -euo pipefail
+          FILE="d1-$(date +%Y%m%d-%H%M%S).sql"
+          pnpm exec wrangler d1 export whatsapp-ai --remote --output "$FILE"
+          pnpm exec wrangler r2 object put "whatsapp-ai-media/backups/$FILE" --file "$FILE"
+          echo "Backed up to r2://whatsapp-ai-media/backups/$FILE"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
