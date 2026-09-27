@@ -30,6 +30,7 @@ Before calling a change done, run typecheck, lint and the tests for every packag
 3. **Anti-spam limits are product features, not bugs.** Don't weaken or bypass the broadcast limits (contact-list-only, ceiling, warm-up cap, cooldown, random gaps, circuit breakers, STOP suppression, required personalization) or the outbound guard (`apps/worker/src/session/outbound-guard.ts`: pace, new-chat daily cap, auto-reply loop breakers). The send *kind* is decided by the server. **Never** implement proxy/IP rotation, fingerprint spoofing, text spinning or anything else meant to evade WhatsApp's detection.
 4. **Scale-conscious queries.** No unbounded `SELECT`s, no `OFFSET` pagination, no `count(*)` for UI totals (see the gotchas below). Keep D1 round trips low: use `db.batch`, and `json_each` for bulk (D1 caps a statement at 100 bound params).
 5. **Secrets.** Never commit `.dev.vars` or real keys. Never commit `apps/*/wrangler.jsonc` or `apps/web/.env.production` (gitignored, per-deployment); change the `*.example` templates instead. No personal ids, domains or DSNs in tracked files. Never log or return credentials. Error messages to clients go through the public-message helpers.
+6. **No AI co-author trailers.** Never add `Co-Authored-By: Claude …`, `Claude-Session:` or any other AI-attribution line to commit messages. The human contributor is the sole author of every commit.
 
 ## UI conventions
 
