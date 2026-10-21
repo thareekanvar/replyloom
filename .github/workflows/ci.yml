@@ -23,6 +23,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # worker-configuration.d.ts is gitignored (it embeds deployment vars), so
+      # generate it from the wrangler.example.jsonc copies `pnpm install` made.
+      # Secret names come from .dev.vars.example; without it Env has no secrets.
+      - run: pnpm --filter web --filter worker cf-typegen:ci
       - run: pnpm lint
 
   typecheck:
@@ -36,6 +40,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # worker-configuration.d.ts is gitignored (it embeds deployment vars), so
+      # generate it from the wrangler.example.jsonc copies `pnpm install` made.
+      # Secret names come from .dev.vars.example; without it Env has no secrets.
+      - run: pnpm --filter web --filter worker cf-typegen:ci
       - run: pnpm typecheck
 
   test:
