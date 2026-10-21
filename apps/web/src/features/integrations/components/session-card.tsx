@@ -196,7 +196,7 @@ export function SessionCard({
               your data, use Disconnect instead. This can&rsquo;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-6 pb-6">
             <label htmlFor={`delete-confirm-${session.id}`} className="text-xs text-muted-foreground">
               Type <span className="font-semibold text-foreground">{session.label}</span> to confirm
             </label>
