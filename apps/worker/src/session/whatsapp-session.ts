@@ -770,7 +770,8 @@ export class WhatsAppSession implements DurableObject {
     // (service binding with X-Session-Workspace) are also allowed.
     if (request.method === "GET" && url.pathname === "/ws") {
       const upgradeHeader = request.headers.get("Upgrade");
-      if (upgradeHeader !== "websocket") {
+      // Header tokens are case-insensitive (RFC 7230); some clients send "WebSocket".
+      if (upgradeHeader?.toLowerCase() !== "websocket") {
         return Response.json({ error: "Expected WebSocket upgrade" }, { status: 426 });
       }
 

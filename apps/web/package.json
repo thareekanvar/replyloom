@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "deploy": "vite build && wrangler deploy",
     "cf-typegen": "wrangler types",
+    "cf-typegen:ci": "wrangler types --env-file .dev.vars.example",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",

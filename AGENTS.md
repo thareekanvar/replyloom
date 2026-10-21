@@ -4,7 +4,7 @@ Guidance for AI coding agents (Claude Code, Codex, Cursor, etc.) and human contr
 
 ## Project in one paragraph
 
-Replyloom: a self-hosted WhatsApp CRM on Cloudflare. `apps/web` (TanStack Start) is the CRM UI and its server functions. `apps/worker` is the WhatsApp engine: Baileys running inside one Durable Object per linked number, plus the broadcast queue consumer, the Scheduler DO and the AI agent. `packages/db` holds the shared Drizzle schema and migrations for D1. `packages/ui` holds the shared shadcn/ui components. Package manager is **pnpm** and the monorepo runs on **Turborepo**. Use Node 22+.
+Replyloom: a self-hosted WhatsApp CRM on Cloudflare. `apps/web` (TanStack Start) is the CRM UI and its server functions. `apps/worker` is the WhatsApp engine: Baileys running inside one Durable Object per linked number, plus the broadcast queue consumer, the Scheduler DO and the AI agent. `packages/db` holds the shared Drizzle schema and migrations for D1. `packages/ui` holds the shared shadcn/ui components. Package manager is **pnpm** and the monorepo runs on **Turborepo**. Use Node 22.13+ and pnpm 11.
 
 ## Commands
 

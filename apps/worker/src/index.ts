@@ -182,7 +182,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   // X-Session-Workspace here: the DO treats that header as an internal
   // caller and would skip the token check.
   const wsMatch = url.pathname.match(/^\/session\/([A-Za-z0-9_-]+)\/ws$/);
-  if (request.method === "GET" && wsMatch && request.headers.get("Upgrade") === "websocket") {
+  if (request.method === "GET" && wsMatch && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
     const doUrl = new URL("/ws" + url.search, url.origin);
     const doRequest = new Request(doUrl, request);
     doRequest.headers.delete("X-Session-Workspace");

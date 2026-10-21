@@ -18,3 +18,17 @@ allowBuilds:
   protobufjs: true
   "@whiskeysockets/baileys": true
   msw: false
+
+# Was package-import-method in .npmrc (pnpm 11 reads only auth/registry
+# settings there). Copy, not hardlink, so patch-package never edits the
+# shared store.
+packageImportMethod: copy
+
+overrides:
+  esbuild: ">=0.28.1"
+  postcss: ">=8.5.23"
+  js-yaml: ">=4.3.2"
+  nanoid: ">=5.1.6"
+  baseline-browser-mapping: ">=2.11.0"
+  "@opentelemetry/core": ">=2.8.0"
+  browserslist: ">=4.28.7"

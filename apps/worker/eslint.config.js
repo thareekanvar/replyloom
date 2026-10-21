@@ -20,6 +20,8 @@ export default [
       // Wrangler-generated Env types: not part of the typecheck project.
       "worker-configuration.d.ts",
       "dist/**",
+      // `wrangler dev` bundle output.
+      ".wrangler/**",
     ],
   },
 ]
