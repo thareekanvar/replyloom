@@ -98,7 +98,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for how the pieces fit together.
 
 ## Quick start (self-hosting)
 
-**Prerequisites:** a Cloudflare account (the free tier is enough to try it), Node 22+, and pnpm (`corepack enable`).
+**Prerequisites:** a Cloudflare account (the free tier is enough to try it), Node 22.13+, and pnpm 11 (`corepack enable`).
 
 ```bash
 git clone https://github.com/thareekanvar/replyloom.git && cd replyloom
