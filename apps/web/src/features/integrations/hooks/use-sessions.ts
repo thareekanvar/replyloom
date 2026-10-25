@@ -112,8 +112,11 @@ export const deleteSession = createServerFn({ method: "POST" })
         .where(eq(waSessions.id, data.sessionId))
         .get()
       if (!session) throw new Error("Session not found")
+      await requirePermission(session.workspaceId, "manage_integrations")
       await requireWorkspaceAccess(session.workspaceId)
-      await db.delete(waSessions).where(eq(waSessions.id, data.sessionId))
+      await db
+        .delete(waSessions)
+        .where(and(eq(waSessions.id, data.sessionId), eq(waSessions.workspaceId, session.workspaceId)))
       return { ok: true }
     }, "Couldn't delete the session. Please try again.")
   )
@@ -121,13 +124,14 @@ export const deleteSession = createServerFn({ method: "POST" })
 async function callSessionWorker(
   sessionId: string,
   path: string,
-  init?: RequestInit
+  init?: RequestInit,
+  permission = "manage_integrations"
 ) {
   // Every caller of this helper (connect / disconnect / status / ws-token /
   // group sync) takes only a sessionId -- the session must belong to the
   // caller's workspace, or anyone could mint a WebSocket token for (and
   // read the live traffic of) any number on the platform.
-  const workspaceId = await requireCurrentPermission("manage_integrations")
+  const workspaceId = await requireCurrentPermission(permission)
   const db = getDb()
   const session = await db
     .select({ workspaceId: waSessions.workspaceId })
@@ -159,7 +163,7 @@ export const getSessionStatus = createServerFn({ method: "POST" })
   .validator((data: { sessionId: string }) => data)
   .handler(
     withSafeErrors(async ({ data }) => {
-      return await callSessionWorker(data.sessionId, "")
+      return await callSessionWorker(data.sessionId, "", undefined, "view_inbox")
     })
   )
 
@@ -224,6 +228,6 @@ export const getWsToken = createServerFn({ method: "POST" })
   .validator((data: { sessionId: string }) => data)
   .handler(
     withSafeErrors(async ({ data }) => {
-      return await callSessionWorker(data.sessionId, "/ws-token")
+      return await callSessionWorker(data.sessionId, "/ws-token", undefined, "view_inbox")
     })
   )

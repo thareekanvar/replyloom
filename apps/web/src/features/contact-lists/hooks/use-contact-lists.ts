@@ -457,13 +457,13 @@ export const removeContactFromList = createServerFn({ method: "POST" })
       const contact = await db
         .select({ broadcastListId: contacts.broadcastListId })
         .from(contacts)
-        .where(eq(contacts.id, data.contactId))
+        .where(and(eq(contacts.id, data.contactId), eq(contacts.workspaceId, data.workspaceId)))
         .get()
       if (contact?.broadcastListId === data.listId) {
         await db
           .update(contacts)
           .set({ broadcastListId: null, broadcastListSince: null })
-          .where(eq(contacts.id, data.contactId))
+          .where(and(eq(contacts.id, data.contactId), eq(contacts.workspaceId, data.workspaceId)))
       }
       return { ok: true }
     }, "Couldn't remove the contact. Please try again.")

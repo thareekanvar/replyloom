@@ -56,7 +56,7 @@ async function ensureWorkspace(userId: string, userName: string) {
   await db
     .update(member)
     .set({ role: "Owner" })
-    .where(eq(member.userId, userId))
+    .where(and(eq(member.userId, userId), eq(member.organizationId, org.id)))
 
   return org.id
 }
@@ -118,17 +118,29 @@ async function applyInvitation(
     throw new Error("This invitation was sent to a different email address.")
   }
 
-  await db.insert(member).values({
-    id: crypto.randomUUID(),
-    userId,
-    organizationId: invite.organizationId,
-    role: invite.role ?? "Viewer",
-    createdAt: new Date(),
-  })
+  const existingMember = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(
+      and(
+        eq(member.userId, userId),
+        eq(member.organizationId, invite.organizationId)
+      )
+    )
+    .get()
+  if (!existingMember) {
+    await db.insert(member).values({
+      id: crypto.randomUUID(),
+      userId,
+      organizationId: invite.organizationId,
+      role: invite.role ?? "Viewer",
+      createdAt: new Date(),
+    })
+  }
   await db
     .update(invitation)
     .set({ status: "accepted" })
-    .where(eq(invitation.id, inviteId))
+    .where(and(eq(invitation.id, inviteId), eq(invitation.status, "pending")))
 
   return invite.organizationId
 }

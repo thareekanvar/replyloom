@@ -49,7 +49,10 @@ export async function handleAgentMessage(
   const message = input.message.trim().slice(0, MAX_INPUT_CHARS);
   if (!message) return { text: "", usedTools: [], usedContext: [], blocked: false, cached: false };
 
-  const customerPhone = input.customerPhone ?? customerPhoneFromJid(input.remoteJid) ?? undefined;
+  const customerPhone =
+    input.customerPhone ??
+    customerPhoneFromJid(input.isGroup ? input.senderJid : input.remoteJid) ??
+    undefined;
   const ctx: AgentContext = {
     env,
     config,
