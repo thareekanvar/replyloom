@@ -7,7 +7,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "wa-cf-poc",
   "main": "src/index.ts",
-  "compatibility_date": "2026-09-17",
+  "compatibility_date": "2026-10-19",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
