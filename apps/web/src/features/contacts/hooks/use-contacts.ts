@@ -478,6 +478,18 @@ export const createContact = createServerFn({ method: "POST" })
       await requirePermission(data.workspaceId, "manage_contacts")
       const db = getDb()
 
+      const session = await db
+        .select({ id: waSessions.id })
+        .from(waSessions)
+        .where(
+          and(
+            eq(waSessions.id, data.waSessionId),
+            eq(waSessions.workspaceId, data.workspaceId)
+          )
+        )
+        .get()
+      if (!session) throw new Error("WhatsApp number not found.")
+
       const normalized = normalizePhoneNumber(
         data.phoneNumber,
         data.defaultCountryCode

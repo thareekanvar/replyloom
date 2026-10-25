@@ -11,15 +11,16 @@ import {
   user,
   autoReplyRules,
   webhooks,
+  waSessions,
   notificationPreferences,
   validateRulePattern,
-  assertSafeOutboundUrl,
+  assertSafeOutboundUrlWithDns,
 } from "@workspace/db"
 import { UserFacingError, withSafeErrors } from "@/lib/errors"
 import { createWebhookInput, createAutoReplyRuleInput, updateAutoReplyRuleInput } from "@/lib/server-schemas"
 import { toEpochSeconds } from "@/lib/dates"
 import { auth } from "@/lib/auth-server"
-import { requireCurrentPermission } from "@/lib/auth"
+import { requireCurrentPermission, requirePermission } from "@/lib/auth"
 
 function getDb() {
   return createDb(env.DB)
@@ -213,12 +214,20 @@ export const createAutoReplyRule = createServerFn({ method: "POST" })
   .validator(createAutoReplyRuleInput)
   .handler(
     withSafeErrors(async ({ data }) => {
-      await requireCurrentPermission("manage_settings")
+      await requirePermission(data.workspaceId, "manage_settings")
       if (data.matchType === "regex") {
         const problem = validateRulePattern(data.keyword)
         if (problem) throw new UserFacingError(problem)
       }
       const db = getDb()
+      if (data.waSessionId) {
+        const ownedSession = await db
+          .select({ id: waSessions.id })
+          .from(waSessions)
+          .where(and(eq(waSessions.id, data.waSessionId), eq(waSessions.workspaceId, data.workspaceId)))
+          .get()
+        if (!ownedSession) throw new UserFacingError("WhatsApp number not found in this workspace.")
+      }
       return db
         .insert(autoReplyRules)
         .values({
@@ -244,6 +253,14 @@ export const updateAutoReplyRule = createServerFn({ method: "POST" })
       }
       const db = getDb()
       const workspaceId = await requireCurrentPermission("manage_settings")
+      if (data.waSessionId) {
+        const ownedSession = await db
+          .select({ id: waSessions.id })
+          .from(waSessions)
+          .where(and(eq(waSessions.id, data.waSessionId), eq(waSessions.workspaceId, workspaceId)))
+          .get()
+        if (!ownedSession) throw new UserFacingError("WhatsApp number not found in this workspace.")
+      }
       await db
         .update(autoReplyRules)
         .set({
@@ -314,8 +331,8 @@ export const createWebhook = createServerFn({ method: "POST" })
   .validator(createWebhookInput)
   .handler(
     withSafeErrors(async ({ data }) => {
-      await requireCurrentPermission("manage_settings")
-      const safe = assertSafeOutboundUrl(data.url)
+      await requirePermission(data.workspaceId, "manage_settings")
+      const safe = await assertSafeOutboundUrlWithDns(data.url)
       if (!safe.ok) throw new UserFacingError(`Webhook URL rejected: ${safe.error}`)
       if (safe.url.protocol !== "https:") throw new UserFacingError("Webhook URLs must use https://")
       const db = getDb()
