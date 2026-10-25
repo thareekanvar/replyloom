@@ -8,7 +8,7 @@
     "lint": "turbo lint",
     "format": "turbo format",
     "typecheck": "turbo typecheck",
-    "postinstall": "node scripts/config.mjs",
+    "postinstall": "node scripts/config.mjs && bash scripts/check-patches.sh",
     "config:backup": "node scripts/config.mjs --backup",
     "config:restore": "node scripts/config.mjs --restore",
     "setup": "bash scripts/setup.sh",
