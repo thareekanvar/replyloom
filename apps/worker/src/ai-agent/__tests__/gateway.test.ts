@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { gatewayRunOptions, FALLBACK_GENERATOR } from "../gateway";
 import type { AgentEnv } from "../types";
 
-function env(gatewayId?: string): AgentEnv {
-  return { AIG_GATEWAY_ID: gatewayId } as unknown as AgentEnv;
+function env(gatewayId?: string, collectLog?: string): AgentEnv {
+  return { AIG_GATEWAY_ID: gatewayId, AIG_COLLECT_LOG: collectLog } as unknown as AgentEnv;
 }
 
 describe("gatewayRunOptions", () => {
@@ -17,13 +17,18 @@ describe("gatewayRunOptions", () => {
     expect(opts.gateway.id).toBe("wa-models");
   });
 
-  it("tags the request with the workspace and metadata", () => {
+  it("tags the request with the workspace and metadata, with collectLog false by default", () => {
     const opts = gatewayRunOptions(env("default"), "abc-123", "classifier");
     expect(opts.tags).toEqual(["ws:abc-123"]);
     expect(opts.gateway.metadata).toEqual({
       workspaceId: "abc-123",
       feature: "classifier",
     });
+    expect(opts.gateway.collectLog).toBe(false);
+  });
+
+  it("enables collectLog when AIG_COLLECT_LOG is 'true'", () => {
+    const opts = gatewayRunOptions(env("default", "true"), "abc-123", "classifier");
     expect(opts.gateway.collectLog).toBe(true);
   });
 

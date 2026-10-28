@@ -33,7 +33,10 @@ export function gatewayRunOptions(env: AgentEnv, workspaceId: string, feature: s
         workspaceId,
         feature,
       },
-      collectLog: true,
+      // Privacy-by-default: AI Gateway still records metrics (requests, tokens,
+      // latency, cost, cache hits) when collectLog is false, without persisting
+      // raw WhatsApp message bodies or RAG prompts unless explicitly opted in.
+      collectLog: env.AIG_COLLECT_LOG?.trim().toLowerCase() === "true",
       requestTimeoutMs: 30_000,
       retries: { maxAttempts: 2, retryDelayMs: 500, backoff: "linear" } as const,
     },

@@ -1,8 +1,9 @@
 import {
-  assertSafeOutboundUrl,
+  assertSafeOutboundUrlWithDns,
   createDb,
   eq,
   and,
+  or,
   desc,
   inArray,
   contacts,
@@ -145,8 +146,9 @@ export async function executeTool(
   const tool = tools.find((t) => t.name === name);
   if (!tool) return `Tool "${name}" is not available for this workspace.`;
 
-  // SSRF: validated at save time too, re-checked here; never follow redirects.
-  if (!assertSafeOutboundUrl(tool.url).ok) return `Tool "${name}" has an unsafe URL and was skipped.`;
+  // SSRF + DNS rebinding: validated at save time too, re-checked here via DoH; never follow redirects.
+  const safeUrl = await assertSafeOutboundUrlWithDns(tool.url);
+  if (!safeUrl.ok) return `Tool "${name}" has an unsafe URL and was skipped.`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TOOL_TIMEOUT_MS);
@@ -211,7 +213,8 @@ async function findCustomerContact(ctx: AgentContext) {
   const conds = [];
   if (ctx.customerPhone) conds.push(eq(contacts.phoneNumber, ctx.customerPhone));
   if (lookupJid && !lookupJid.endsWith("@g.us")) conds.push(eq(contacts.jid, lookupJid));
-  const where = and(eq(contacts.workspaceId, ctx.workspaceId), ...conds);
+  const matchCond = conds.length === 1 ? conds[0] : or(...conds);
+  const where = and(eq(contacts.workspaceId, ctx.workspaceId), matchCond);
   return db.select().from(contacts).where(where).limit(1).get();
 }
 

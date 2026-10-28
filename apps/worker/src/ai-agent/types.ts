@@ -11,6 +11,12 @@ export interface AgentEnv {
    * auto-provisioned "default" gateway when unset).
    */
   AIG_GATEWAY_ID?: string;
+  /**
+   * Opt-in flag ("true") to persist raw request/response payloads in
+   * Cloudflare AI Gateway logs. Defaults to false so customer message
+   * bodies and RAG context are not retained in gateway logs.
+   */
+  AIG_COLLECT_LOG?: string;
 }
 
 export interface AgentModels {
