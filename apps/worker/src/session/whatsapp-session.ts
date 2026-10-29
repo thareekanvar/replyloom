@@ -886,14 +886,20 @@ export class WhatsAppSession implements DurableObject {
       if (body.force && !this.skipHistorySync) {
         this.resetHistorySyncMarkers();
       }
-      // If this session never completed initial login (no sessionUser), wipe
-      // any half-paired creds.me left from an aborted QR scan so Baileys
-      // issues a fresh QR instead of looping 428 on an unregistered device.
-      if (!this.sessionUser) {
+      // Wipe half-paired creds left from an aborted QR scan so Baileys issues
+      // a fresh QR instead of looping 428 on an unregistered device. Only when
+      // the last close was a 428 before any successful login -- a missing
+      // sessionUser alone is not proof, and wiping a linked number's Signal
+      // keys would force a re-pair.
+      if (!this.sessionUser && (await this.state.storage.get<boolean>("pairingIncomplete"))) {
         try {
           this.state.storage.sql.exec("DELETE FROM wa_creds");
           this.state.storage.sql.exec("DELETE FROM wa_keys");
-        } catch {}
+          this.log("warn", "Cleared half-paired credentials before reconnect.");
+        } catch (e: any) {
+          this.log("error", `Failed to clear half-paired credentials: ${e?.message || e}`);
+        }
+        this.state.storage.delete("pairingIncomplete");
       }
       // A manual (re)connect always does the full group refetch, bypassing
       // the reconnect throttle.
@@ -2338,18 +2344,16 @@ export class WhatsAppSession implements DurableObject {
       // recorded on the companion device when they asked for history.
       const wantHistory = !this.skipHistorySync;
       const hasPaired = !!authState.creds.me;
+      const useDesktopProfile = wantHistory && hasPaired;
       this.log(
         "info",
-        `socket profile: hasPaired=${hasPaired} wantHistory=${wantHistory}`
+        `socket profile: hasPaired=${hasPaired} wantHistory=${wantHistory} useDesktopProfile=${useDesktopProfile}`
       );
       this.socket = makeWASocket({
         auth: authState,
         version: waVersion,
         printQRInTerminal: false,
-        // Keep Chrome (WEB_BROWSER) consistently across registration and
-        // post-pairing 515 login; switching to Desktop (DARWIN) after
-        // registering as Chrome triggers WhatsApp 428 Connection Terminated.
-        browser: Browsers.macOS("Chrome"),
+        browser: useDesktopProfile ? Browsers.macOS("Desktop") : Browsers.macOS("Chrome"),
         syncFullHistory: wantHistory,
         // Default Baileys filter rejects FULL history; when the user asked
         // to import history, accept every sync type including FULL. Must not
@@ -2603,6 +2607,7 @@ export class WhatsAppSession implements DurableObject {
         this.sessionUser = this.socket?.user?.id ?? null;
         this.log("info", `CONNECTED as ${this.sessionUser}`);
         this.persist();
+        this.state.storage.delete("pairingIncomplete");
         // Keep this number online from now on, browser or not.
         this.state.waitUntil(this.setWantOnline(true));
         this.state.storage.delete("qr");
@@ -2679,6 +2684,11 @@ export class WhatsAppSession implements DurableObject {
           "warn",
           `connection.close fired: code=${statusCode} err=${errMsg} socket_was=${!!this.socket} state=${this.connectionState}`
         );
+        // 428 before the first successful login means pairing never finished;
+        // the next manual connect may then discard the half-paired creds.
+        if (statusCode === DisconnectReason.connectionClosed && !this.sessionUser) {
+          this.state.storage.put("pairingIncomplete", true);
+        }
 
         // User explicitly clicked Disconnect — do NOT auto-reconnect.
         if (this.intentionalDisconnect) {
