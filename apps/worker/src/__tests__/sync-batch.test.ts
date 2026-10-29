@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import * as schema from "@workspace/db/schema";
-import { bulkUpsertContacts, parseBaileysMessage, syncIncomingMessage, syncMessagesBatch, updateMessageStatus, upsertGroupMembers  } from "../db/sync";
+import { bulkUpsertContacts, findOrCreateContact, parseBaileysMessage, syncIncomingMessage, syncMessagesBatch, updateMessageStatus, upsertGroupMembers  } from "../db/sync";
 import type {ParsedMessage} from "../db/sync";
 import { addContactsToListBulk } from "@workspace/db";
 
@@ -359,5 +359,31 @@ describe.skipIf(!sqlite)("auto-reply / access rules are tenant-isolated", () => 
     expect(await findAutoReply(db, "ws2", "s2", ctx)).toBeNull();
     expect(await isBlocked(db, "ws1", "s1", "auto_reply", "x@s.whatsapp.net")).toBe(true);
     expect(await isBlocked(db, "ws2", "s2", "auto_reply", "x@s.whatsapp.net")).toBe(false);
+  });
+});
+
+describe.skipIf(!sqlite)("findOrCreateContact with a split @lid / phone-jid contact", () => {
+  it("reuses the phone-jid row instead of renaming the @lid row onto its jid", async () => {
+    const { db, raw } = makeDb();
+    // Same person stored twice: once by phone jid (number not yet known),
+    // once by @lid. Renaming the @lid row to the phone jid would hit
+    // contacts_session_jid_idx and abort the message sync.
+    raw.exec(
+      `INSERT INTO contacts (id, workspace_id, wa_session_id, jid) VALUES ('c_pn', 'ws1', 's1', '15550001111@s.whatsapp.net')`
+    );
+    raw.exec(
+      `INSERT INTO contacts (id, workspace_id, wa_session_id, jid, lid) VALUES ('c_lid', 'ws1', 's1', '99887766@lid', '99887766@lid')`
+    );
+
+    const res = await findOrCreateContact(db, "ws1", "s1", {
+      jid: "15550001111@s.whatsapp.net",
+      lid: "99887766@lid",
+      phoneNumber: "15550001111",
+    });
+
+    expect(res.id).toBe("c_pn");
+    const row = raw.prepare(`SELECT jid, phone_number, lid FROM contacts WHERE id = 'c_pn'`).get() as any;
+    expect(row.phone_number).toBe("15550001111");
+    expect(row.lid).toBe("99887766@lid");
   });
 });

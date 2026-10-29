@@ -71,12 +71,20 @@ export async function findOrCreateContact(
   const lid = data.lid ?? (isLidJid(data.jid) ? data.jid : null);
   const displayName = data.name || data.notify || undefined;
 
-  // 1. Phone number — the durable identity — wins if we have one.
+  // 1. Phone number — the durable identity — wins if we have one. Also match
+  //    a row that already holds the phone jid but has no phone_number yet:
+  //    otherwise step 2 finds the @lid row and renaming it onto the phone
+  //    jid below fails contacts_session_jid_idx, dropping the message.
   let existing = phoneNumber
     ? await db
         .select({ id: contacts.id, jid: contacts.jid, lid: contacts.lid })
         .from(contacts)
-        .where(and(eq(contacts.waSessionId, waSessionId), eq(contacts.phoneNumber, phoneNumber)))
+        .where(
+          and(
+            eq(contacts.waSessionId, waSessionId),
+            or(eq(contacts.phoneNumber, phoneNumber), eq(contacts.jid, `${phoneNumber}@s.whatsapp.net`))
+          )
+        )
         .get()
     : undefined;
 
