@@ -204,5 +204,22 @@ describe("assertSafeOutboundUrlWithDns (DoH DNS rebinding defense)", () => {
       dnsFetch: mockDohFetch({}),
     });
     expect(nx.ok).toBe(false);
+    if (!nx.ok) expect(nx.retryable).toBe(true);
+  });
+
+  it("marks a failed DoH lookup as retryable, not unsafe", async () => {
+    const down = await assertSafeOutboundUrlWithDns("https://hooks.example.org/notify", {
+      dnsFetch: async () => new Response("unavailable", { status: 503 }),
+    });
+    expect(down.ok).toBe(false);
+    if (!down.ok) expect(down.retryable).toBe(true);
+  });
+
+  it("does not mark a private-IP result as retryable", async () => {
+    const res = await assertSafeOutboundUrlWithDns("https://rebind.attacker.example/hook", {
+      dnsFetch: mockDohFetch({ A: [{ type: 1, TTL: 60, data: "10.0.0.1" }] }),
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.retryable).toBeUndefined();
   });
 });
