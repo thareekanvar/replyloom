@@ -30,18 +30,19 @@ pnpm config:restore   # copies them back, only where a local file is missing
 
 `pnpm install` also auto-restores from that backup before falling back to templates.
 
-**Cloudflare (R2) sync — cross-machine, no extra tools.** The same two commands take `--cloud` to sync the backup to a private object in your own Cloudflare account (uses your existing `wrangler login`):
+**Cloudflare (R2) sync — cross-machine, encrypted & isolated.** The same two commands take `--cloud` to encrypt the backup client-side (`AES-256-GCM`, `PBKDF2-SHA256` 600,000 iterations via `BACKUP_ENCRYPTION_KEY`) and sync it to a dedicated restricted R2 bucket (`whatsapp-ai-backups`, separate from the Worker's `whatsapp-ai-media` bucket and never bound to any Worker):
 
 ```bash
-pnpm config:backup --cloud    # local backup + upload to r2://<bucket>/config/config.json
-pnpm config:restore --cloud   # download from R2, then restore missing local files
+export BACKUP_ENCRYPTION_KEY="your-strong-passphrase-at-least-12-chars"
+pnpm config:backup --cloud    # local backup + AES-256-GCM upload to r2://whatsapp-ai-backups/config/config.json.enc
+pnpm config:restore --cloud   # download + decrypt from R2, then restore missing local files
 ```
 
-On a new machine: `pnpm exec wrangler login`, then `pnpm config:restore --cloud` — done, no re-entry. The bucket defaults to the media bucket created by `pnpm setup` (override with `CONFIG_R2_BUCKET`). The blob contains your `.dev.vars` secrets, so it lives in your private bucket — never commit it or share the bucket. Alternatively point `CONFIG_BACKUP_DIR` at a synced folder (Dropbox, iCloud) if you prefer local sync; the backup holds real secrets either way, so never move it into the repo.
+On a new machine: `pnpm exec wrangler login`, export `BACKUP_ENCRYPTION_KEY`, then `pnpm config:restore --cloud` — done, no re-entry. The bucket defaults to `whatsapp-ai-backups` created by `pnpm setup` (override with `CONFIG_R2_BUCKET`).
 
-**GitHub Actions deploy.** CI renders the three files with `node scripts/config.mjs --from-env`. Add these under Settings → Secrets and variables → Actions:
-- Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `D1_DATABASE_ID`, `KV_NAMESPACE_ID`
-- Variables: `APP_URL` (CRM origin), `ENGINE_URL` (engine Worker URL), `SENTRY_DSN` (optional)
+**GitHub Actions deploy & backup.** CI renders the three files with `node scripts/config.mjs --from-env`. Add these under Settings → Secrets and variables → Actions:
+- Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `D1_DATABASE_ID`, `KV_NAMESPACE_ID`, `BACKUP_ENCRYPTION_KEY`
+- Variables: `APP_URL` (CRM origin), `ENGINE_URL` (engine Worker URL), `SENTRY_DSN` (optional), `BACKUP_R2_BUCKET` (optional, default `whatsapp-ai-backups`), `BACKUP_RETENTION_DAYS` (optional, default `30`)
 
 The deploy job skips cleanly when any of these is missing, for example on forks. The nightly D1 backup uses the same values.
 
@@ -211,38 +212,32 @@ The engine exposes `GET /health` and the web app has a built-in health endpoint.
 
 ## D1 database backups
 
-D1 does not have automatic backups on the free tier. For production:
+D1 does not have automatic backups on the free tier. The included `.github/workflows/d1-backup.yml` workflow exports D1 nightly, encrypts the SQL dump client-side with `AES-256-GCM` (`PBKDF2-SHA256`, 600,000 iterations) using `BACKUP_ENCRYPTION_KEY`, uploads it to the dedicated `whatsapp-ai-backups` R2 bucket (`backups/d1-YYYYMMDD-HHMMSS.sql.enc`), and enforces an R2 object lifecycle expiration rule (`BACKUP_RETENTION_DAYS`, default `30` days).
 
-**Manual backup via Wrangler:**
+**Manual encrypted backup via Wrangler + `scripts/config.mjs`:**
 ```bash
-# Export the entire database to a SQL file
-wrangler d1 export whatsapp-ai --remote --output backups/d1-$(date +%Y%m%d).sql
-
-# Or back up to R2 for durable storage
-wrangler d1 export whatsapp-ai --remote --output r2://whatsapp-ai-media/backups/d1-$(date +%Y%m%d).sql
+export BACKUP_ENCRYPTION_KEY="your-strong-passphrase"
+FILE="d1-$(date +%Y%m%d).sql"
+wrangler d1 export whatsapp-ai --remote --output "$FILE"
+node scripts/config.mjs --encrypt-file "$FILE" "${FILE}.enc"
+wrangler r2 object put "whatsapp-ai-backups/backups/${FILE}.enc" --file "${FILE}.enc" --remote
+rm -f "$FILE" "${FILE}.enc"
 ```
 
-**Automated backup (recommended):**
-Add a cron job to your CI/CD or use a Cloudflare Worker with a cron trigger:
-
+**Decrypt & Restore:**
 ```bash
-# Example: daily backup at 3am UTC
-# Add to your system's crontab or CI scheduler:
-0 3 * * * cd /path/to/repo && wrangler d1 export whatsapp-ai --remote --output backups/d1-$(date +\%Y\%m\%d).sql
+export BACKUP_ENCRYPTION_KEY="your-strong-passphrase"
+wrangler r2 object get "whatsapp-ai-backups/backups/d1-20261025-030000.sql.enc" --file d1.sql.enc --remote
+node scripts/config.mjs --decrypt-file d1.sql.enc d1.sql
+wrangler d1 execute whatsapp-ai --remote --file=d1.sql
+rm -f d1.sql d1.sql.enc
 ```
-
-**Restore:**
-```bash
-wrangler d1 execute whatsapp-ai --remote --file=backups/d1-20240101.sql
-```
-
-Keep at least 7 days of backups. Test restores periodically.
 
 ## AI Gateway
 
-Every model call in the worker — the agent's intent classifier, the reply generator, RAG + message-search embeddings — is routed through an [AI Gateway](https://developers.cloudflare.com/ai-gateway/) via the AI binding (worker var `AIG_GATEWAY_ID`, default `"default"`). Each request is tagged `ws:{workspaceId}` and carries `metadata.workspaceId`/`feature`, so gateway logs can be filtered per workspace once a matching [custom-metadata profile](https://developers.cloudflare.com/ai-gateway/observability/custom-metadata/) exists.
+Every model call in the worker — the agent's intent classifier, the reply generator, RAG + message-search embeddings — is routed through an [AI Gateway](https://developers.cloudflare.com/ai-gateway/) via the AI binding (worker var `AIG_GATEWAY_ID`, default `"default"`). Each request is tagged `ws:{workspaceId}` and carries `metadata.workspaceId`/`feature`, so gateway metrics can be filtered per workspace once a matching [custom-metadata profile](https://developers.cloudflare.com/ai-gateway/observability/custom-metadata/) exists.
 
-Out of the box you get analytics (requests, tokens, cost, latency, cache hits) and request logs with zero account setup. The gateway id `"default"` auto-provisions on the first request; create a named gateway from the [AI Gateway dashboard](https://dash.cloudflare.com/?to=/:account/ai-gateway) and set `AIG_GATEWAY_ID` to it for a stable config.
+**Privacy by default (`collectLog: false`):** By default, `gatewayRunOptions` sets `collectLog: false` so Cloudflare AI Gateway records operational telemetry (request counts, token usage, latency, cost, and cache hit/miss rates) **without** persisting raw WhatsApp message bodies, conversation history, or RAG context in AI Gateway logs. To opt in to full request/response payload logging for debugging, set `AIG_COLLECT_LOG="true"` in `apps/worker`.
 
 Features that are configured dashboard-side on the gateway (no code changes needed here):
 
@@ -312,7 +307,7 @@ CSP headers are automatically added in production builds via the Vite plugin. Th
 - `connect-src 'self'` — only allow API calls to your domain
 - `frame-ancestors 'none'` — prevents framing (clickjacking protection)
 
-To customize CSP, edit the `cspHeaders` plugin in `apps/web/vite.config.ts`.
+To customize production CSP headers, edit `withSecurityHeaders` in `apps/web/src/server.ts` (for local `vite dev` CSP testing, set `VITE_ENABLE_DEV_CSP=true` in `apps/web/vite.config.ts`).
 
 ### Production Security Checklist
 
