@@ -163,7 +163,9 @@ export const getSessionStatus = createServerFn({ method: "POST" })
   .validator((data: { sessionId: string }) => data)
   .handler(
     withSafeErrors(async ({ data }) => {
-      return await callSessionWorker(data.sessionId, "", undefined, "view_inbox")
+      // Stays on manage_integrations: the status includes the pairing QR, and
+      // scanning it links a phone number to the workspace.
+      return await callSessionWorker(data.sessionId, "")
     })
   )
 
