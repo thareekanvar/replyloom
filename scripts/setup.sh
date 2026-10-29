@@ -92,7 +92,7 @@ if wrangler r2 bucket list 2>/dev/null | grep -q "$BACKUP_BUCKET"; then
 else
   CI=true wrangler r2 bucket create "$BACKUP_BUCKET"
 fi
-wrangler r2 bucket lifecycle add "$BACKUP_BUCKET" "expire-d1-backups-30d" "backups/" --expire-days 30 --force >/dev/null 2>&1 || true
+wrangler r2 bucket lifecycle add "$BACKUP_BUCKET" "expire-d1-backups" "backups/" --expire-days 30 --force >/dev/null 2>&1 || true
 
 # ── Queue (safe-broadcast dispatch) ──────────────────────────────────────
 echo "==> Queue ($QUEUE_NAME)..."

@@ -40,6 +40,8 @@ pnpm config:restore --cloud   # download + decrypt from R2, then restore missing
 
 On a new machine: `pnpm exec wrangler login`, export `BACKUP_ENCRYPTION_KEY`, then `pnpm config:restore --cloud` — done, no re-entry. The bucket defaults to `whatsapp-ai-backups` created by `pnpm setup` (override with `CONFIG_R2_BUCKET`).
 
+Keep `BACKUP_ENCRYPTION_KEY` somewhere outside the backup (a password manager, plus the GitHub Actions secret). If its only copy is inside `.dev.vars`, it is locked inside the encrypted backup and you can't restore on a new machine. `--backup --cloud` refuses to upload without a key; pass `--allow-unencrypted` only if you really want a plain-text copy of your secrets in R2.
+
 **GitHub Actions deploy & backup.** CI renders the three files with `node scripts/config.mjs --from-env`. Add these under Settings → Secrets and variables → Actions:
 - Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `D1_DATABASE_ID`, `KV_NAMESPACE_ID`, `BACKUP_ENCRYPTION_KEY`
 - Variables: `APP_URL` (CRM origin), `ENGINE_URL` (engine Worker URL), `SENTRY_DSN` (optional), `BACKUP_R2_BUCKET` (optional, default `whatsapp-ai-backups`), `BACKUP_RETENTION_DAYS` (optional, default `30`)
@@ -212,7 +214,7 @@ The engine exposes `GET /health` and the web app has a built-in health endpoint.
 
 ## D1 database backups
 
-D1 does not have automatic backups on the free tier. The included `.github/workflows/d1-backup.yml` workflow exports D1 nightly, encrypts the SQL dump client-side with `AES-256-GCM` (`PBKDF2-SHA256`, 600,000 iterations) using `BACKUP_ENCRYPTION_KEY`, uploads it to the dedicated `whatsapp-ai-backups` R2 bucket (`backups/d1-YYYYMMDD-HHMMSS.sql.enc`), and enforces an R2 object lifecycle expiration rule (`BACKUP_RETENTION_DAYS`, default `30` days).
+D1 does not have automatic backups on the free tier. The included `.github/workflows/d1-backup.yml` workflow (it fails, rather than uploading plain text, when the `BACKUP_ENCRYPTION_KEY` secret is missing) exports D1 nightly, encrypts the SQL dump client-side with `AES-256-GCM` (`PBKDF2-SHA256`, 600,000 iterations) using `BACKUP_ENCRYPTION_KEY`, uploads it to the dedicated `whatsapp-ai-backups` R2 bucket (`backups/d1-YYYYMMDD-HHMMSS.sql.enc`), and enforces an R2 object lifecycle expiration rule (`BACKUP_RETENTION_DAYS`, default `30` days).
 
 **Manual encrypted backup via Wrangler + `scripts/config.mjs`:**
 ```bash
@@ -295,6 +297,10 @@ Rate limiting is configured via `wrangler.jsonc` using Cloudflare's built-in Rat
 ```
 
 **Note:** Requires wrangler 4.36.0+ and a paid Workers plan. Adjust limits based on your needs.
+
+### Outbound URL checks (webhooks, agent tools)
+
+Webhook and agent-tool URLs are checked against private, loopback, metadata and reserved addresses when saved and again before every call. The pre-call check resolves the hostname over DNS-over-HTTPS (`cloudflare-dns.com`, `A` + `AAAA`), which adds up to 2 subrequests per delivery or tool call; verified results are cached in memory for up to 60s. On the free plan's 50-subrequest limit, keep this in mind for bursts of webhook deliveries. If the DNS lookup itself fails, the delivery is retried within its normal attempt budget instead of being dropped.
 
 ### Content Security Policy (CSP)
 

@@ -169,7 +169,8 @@ function restoreMissing() {
 function runCli() {
   const flags = process.argv.slice(2);
   const cloud = flags.includes("--cloud");
-  const positional = flags.filter((f) => f !== "--cloud");
+  const allowUnencrypted = flags.includes("--allow-unencrypted");
+  const positional = flags.filter((f) => f !== "--cloud" && f !== "--allow-unencrypted");
   const mode = positional[0] ?? "";
 
   if (mode === "--encrypt-file") {
@@ -238,21 +239,23 @@ function runCli() {
         // Ensure the dedicated restricted backup bucket exists so upgrading users don't have to re-run setup.sh.
         wrangler(["r2", "bucket", "create", R2_BUCKET], { allowFail: true });
         const plainBlob = JSON.stringify({ savedAt: new Date().toISOString(), files });
-        let payload = plainBlob;
-        let encryptedLabel = "unencrypted (isolated bucket)";
-        if (key && key.length >= 12) {
-          payload = encryptBackupPayload(plainBlob, key);
-          encryptedLabel = "AES-256-GCM encrypted";
-        } else {
-          console.warn(
-            "Warning: BACKUP_ENCRYPTION_KEY (12+ chars) is not set. Uploading to isolated bucket without client-side encryption — set BACKUP_ENCRYPTION_KEY to encrypt secrets at rest.",
+        if (!key || key.length < 12) {
+          console.error(
+            "BACKUP_ENCRYPTION_KEY (12+ chars) is not set. Refusing to upload your .dev.vars secrets unencrypted.\n" +
+              "Set it in your shell (keep a copy outside this backup, e.g. a password manager), or pass --allow-unencrypted.",
           );
+          if (!allowUnencrypted) process.exit(1);
         }
+        const encrypt = key && key.length >= 12;
+        const payload = encrypt ? encryptBackupPayload(plainBlob, key) : plainBlob;
+        const encryptedLabel = encrypt ? "AES-256-GCM encrypted" : "UNENCRYPTED (--allow-unencrypted)";
         const tmpFile = join(tmp, "config.json");
         writeFileSync(tmpFile, payload, { mode: 0o600 });
         wrangler(["r2", "object", "put", `${R2_BUCKET}/${R2_KEY}`, "--file", tmpFile, "--remote"]);
         if (R2_BUCKET !== LEGACY_R2_BUCKET) {
-          wrangler(["r2", "object", "delete", `${LEGACY_R2_BUCKET}/${R2_KEY}`, "--remote"], { allowFail: true });
+          if (wrangler(["r2", "object", "delete", `${LEGACY_R2_BUCKET}/${R2_KEY}`, "--remote"], { allowFail: true }) !== null) {
+            console.log(`Removed the old unencrypted copy at r2://${LEGACY_R2_BUCKET}/${R2_KEY}`);
+          }
         }
         console.log(`Uploaded ${encryptedLabel} backup (${Object.keys(files).length} files) to r2://${R2_BUCKET}/${R2_KEY}`);
       } finally {
