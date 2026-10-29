@@ -5,7 +5,7 @@
 //   - Outbound webhooks: fire-and-forget HTTP callbacks, HMAC-signed,
 //     with best-effort retries driven by the Scheduler alarm (see
 //     scheduler.ts), not a fixed cron.
-import { assertSafeOutboundUrl } from "./security";
+import { assertSafeOutboundUrlWithDns } from "./security";
 import {
   
   eq,
@@ -128,9 +128,9 @@ async function signPayload(secret: string, body: string): Promise<string> {
 
 async function deliver(db: Db, hook: { id: string; url: string; secret: string }, deliveryId: string, body: string) {
   try {
-    // Re-checked at delivery time too (rows created before validation
-    // existed, or edited directly in the DB).
-    const safe = assertSafeOutboundUrl(hook.url);
+    // Re-checked at delivery time with live DoH resolution (defends against
+    // DNS rebinding and rows created/edited directly in D1).
+    const safe = await assertSafeOutboundUrlWithDns(hook.url);
     if (!safe.ok) {
       await db.update(webhookDeliveries).set({ status: "dead" }).where(eq(webhookDeliveries.id, deliveryId));
       return;
@@ -238,8 +238,18 @@ export async function retryFailedWebhookDeliveries(db: Db, _env: Env) {
     .limit(25)
     .all();
 
+  if (failed.length === 0) return;
+
+  const webhookIds = Array.from(new Set(failed.map((r) => r.webhookId)));
+  const hookRows = await db
+    .select()
+    .from(webhooks)
+    .where(inArray(webhooks.id, webhookIds))
+    .all();
+  const hookById = new Map(hookRows.map((h) => [h.id, h]));
+
   for (const row of failed) {
-    const hook = await db.select().from(webhooks).where(eq(webhooks.id, row.webhookId)).get();
+    const hook = hookById.get(row.webhookId);
     if (!hook || !hook.enabled) {
       await db.update(webhookDeliveries).set({ status: "dead" }).where(eq(webhookDeliveries.id, row.id));
       continue;

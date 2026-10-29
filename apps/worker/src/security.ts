@@ -142,5 +142,9 @@ export function assertCallerWorkspace(caller: Caller, workspaceId: string): Resp
 export const MAX_MEDIA_UPLOAD_BYTES = 16 * 1024 * 1024;
 /** Max bytes accepted for per-message media sends (POST /session/:id/send-media). 64 MB. */
 export const MAX_SEND_MEDIA_BYTES = 64 * 1024 * 1024;
-// SSRF guard -- shared with the web app, see packages/db lib/safe-url.ts
-export { assertSafeOutboundUrl } from "@workspace/db";
+// SSRF & DNS-rebinding guard -- shared with the web app, see packages/db lib/safe-url.ts
+export {
+  assertSafeOutboundUrl,
+  assertSafeOutboundUrlWithDns,
+  isPrivateOrReservedIp,
+} from "@workspace/db";

@@ -12,7 +12,7 @@ import { handleAgentMessage } from "./ai-agent/agent";
 import { loadAgentConfig, invalidateConfigCache } from "./ai-agent/config";
 import { ingestDocument } from "./ai-agent/rag";
 import { listWorkspaceWebhookTools } from "./ai-agent/tools";
-import { resolveCaller, assertCallerWorkspace, unauthorized, forbidden, assertSafeOutboundUrl, MAX_MEDIA_UPLOAD_BYTES, MAX_SEND_MEDIA_BYTES  } from "./security";
+import { resolveCaller, assertCallerWorkspace, unauthorized, forbidden, assertSafeOutboundUrlWithDns, MAX_MEDIA_UPLOAD_BYTES, MAX_SEND_MEDIA_BYTES  } from "./security";
 import {
   SearchBodySchema,
   ReindexBodySchema,
@@ -90,6 +90,11 @@ export interface Env {
    * auto-provisioned "default" gateway when unset.
    */
   AIG_GATEWAY_ID?: string;
+  /**
+   * Opt-in flag ("true") to persist raw request/response payloads in
+   * Cloudflare AI Gateway logs. Defaults to false for privacy.
+   */
+  AIG_COLLECT_LOG?: string;
   /**
    * Allowed CORS origin. Defaults to "*" for local dev; set to your
    * production domain (e.g. "https://app.example.com") in wrangler vars
@@ -317,6 +322,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && url.pathname.startsWith("/media/")) {
     const key = decodeURIComponent(url.pathname.slice("/media/".length));
     if (!key) return new Response("Not found", { status: 404 });
+    if (key.startsWith("config/") || key.startsWith("backups/") || key.includes("..")) return forbidden();
     if (!key.startsWith(`${caller.workspaceId}/`)) return forbidden();
     const object = await env.MEDIA.get(key);
     if (!object) return new Response("Not found", { status: 404 });
@@ -335,6 +341,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "DELETE" && url.pathname.startsWith("/media/")) {
     const key = decodeURIComponent(url.pathname.slice("/media/".length));
     if (!key) return Response.json({ ok: false, error: "Missing key" }, { status: 400 });
+    if (key.startsWith("config/") || key.startsWith("backups/") || key.includes("..")) return forbidden();
     if (!key.startsWith(`${caller.workspaceId}/`)) return forbidden();
     await env.MEDIA.delete(key);
     return Response.json({ ok: true });
@@ -607,7 +614,7 @@ async function route(request: Request, env: Env): Promise<Response> {
         const { workspaceId, name, description, url: toolUrl, parameters, method, authToken, enabled } = parsed.data;
         const scopeError = assertCallerWorkspace(caller, workspaceId);
         if (scopeError) return scopeError;
-        const urlCheck = assertSafeOutboundUrl(toolUrl);
+        const urlCheck = await assertSafeOutboundUrlWithDns(toolUrl);
         if (!urlCheck.ok) {
           return Response.json({ ok: false, error: urlCheck.error }, { status: 400 });
         }
