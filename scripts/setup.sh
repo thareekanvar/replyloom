@@ -15,6 +15,7 @@ WORKER_CONFIG="$WORKER_DIR/wrangler.jsonc"
 WEB_CONFIG="$WEB_DIR/wrangler.jsonc"
 DB_NAME="whatsapp-ai"
 MEDIA_BUCKET="whatsapp-ai-media"
+BACKUP_BUCKET="whatsapp-ai-backups"
 QUEUE_NAME="wa-broadcast-dispatch"
 VECTORIZE_INDEX="wa-messages"
 AGENT_VECTORIZE_INDEX="wa-docs"
@@ -81,8 +82,17 @@ echo "==> R2 bucket ($MEDIA_BUCKET)..."
 if wrangler r2 bucket list 2>/dev/null | grep -q "$MEDIA_BUCKET"; then
   echo "    already exists"
 else
-  wrangler r2 bucket create "$MEDIA_BUCKET"
+  CI=true wrangler r2 bucket create "$MEDIA_BUCKET"
 fi
+
+# ── R2 bucket (restricted encrypted backups — not bound to any Worker) ───
+echo "==> R2 backup bucket ($BACKUP_BUCKET)..."
+if wrangler r2 bucket list 2>/dev/null | grep -q "$BACKUP_BUCKET"; then
+  echo "    already exists"
+else
+  CI=true wrangler r2 bucket create "$BACKUP_BUCKET"
+fi
+wrangler r2 bucket lifecycle add "$BACKUP_BUCKET" "expire-d1-backups" "backups/" --expire-days 30 --force >/dev/null 2>&1 || true
 
 # ── Queue (safe-broadcast dispatch) ──────────────────────────────────────
 echo "==> Queue ($QUEUE_NAME)..."

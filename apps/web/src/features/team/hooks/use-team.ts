@@ -223,7 +223,7 @@ export const deleteRole = createServerFn({ method: "POST" })
       const role = await db
         .select()
         .from(roles)
-        .where(eq(roles.id, data.roleId))
+        .where(and(eq(roles.id, data.roleId), eq(roles.workspaceId, data.workspaceId)))
         .get()
       if (!role) return { ok: true }
       if (role.isDefault)
@@ -246,7 +246,9 @@ export const deleteRole = createServerFn({ method: "POST" })
           `"${role.name}" is still assigned to a team member — reassign them first.`
         )
 
-      await db.delete(roles).where(eq(roles.id, data.roleId))
+      await db
+        .delete(roles)
+        .where(and(eq(roles.id, data.roleId), eq(roles.workspaceId, data.workspaceId)))
       return { ok: true }
     }, "Couldn't delete the role. Please try again.")
   )
@@ -499,17 +501,34 @@ export const acceptInvitation = createServerFn({ method: "POST" })
         )
       }
 
-      await db.insert(member).values({
-        id: crypto.randomUUID(),
-        userId: sessionUserId,
-        organizationId: invite.organizationId,
-        role: invite.role ?? "Viewer",
-        createdAt: new Date(),
-      })
+      const existingMember = await db
+        .select({ id: member.id })
+        .from(member)
+        .where(
+          and(
+            eq(member.userId, sessionUserId),
+            eq(member.organizationId, invite.organizationId)
+          )
+        )
+        .get()
+      if (!existingMember) {
+        await db.insert(member).values({
+          id: crypto.randomUUID(),
+          userId: sessionUserId,
+          organizationId: invite.organizationId,
+          role: invite.role ?? "Viewer",
+          createdAt: new Date(),
+        })
+      }
       await db
         .update(invitation)
         .set({ status: "accepted" })
-        .where(eq(invitation.id, data.invitationId))
+        .where(
+          and(
+            eq(invitation.id, data.invitationId),
+            eq(invitation.status, "pending")
+          )
+        )
 
       return { ok: true, workspaceId: invite.organizationId }
     }, "Couldn't accept the invitation. Please try again.")

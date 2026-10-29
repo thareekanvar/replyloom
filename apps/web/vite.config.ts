@@ -83,23 +83,23 @@ const betterAuthEntrypoints = [
   "better-auth/tanstack-start",
 ]
 
-// Content Security Policy headers for production security.
-// Adjust these values based on your specific needs (e.g., CDN domains for assets).
+// Content Security Policy headers for local `vite dev` server parity.
+// Note: production security headers (CSP, HSTS, X-Frame-Options, nosniff) are
+// enforced at the Worker edge in `apps/web/src/server.ts` (`withSecurityHeaders`).
 const cspHeaders: Plugin = {
   name: "csp-headers",
   configureServer(server) {
     const engineOrigin = ((process.env.VITE_ENGINE_URL as string | undefined) ?? "").replace(/\/+$/, "")
     server.middlewares.use((_req, res, next) => {
-      // Only add CSP in production; skip during development for easier debugging
-      if (process.env.NODE_ENV === "production") {
+      if (process.env.VITE_ENABLE_DEV_CSP === "true") {
         res.setHeader(
           "Content-Security-Policy",
           [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // TanStack Start requires inline/eval for hydration
-            "style-src 'self' 'unsafe-inline'", // Tailwind requires inline styles
-            "img-src 'self' data: https:",
-            "font-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob: https:",
+            "font-src 'self' data:",
             `connect-src 'self' ${engineOrigin} ${engineOrigin.replace(/^http/, "ws")}`.trim(),
             "frame-ancestors 'none'",
             "base-uri 'self'",

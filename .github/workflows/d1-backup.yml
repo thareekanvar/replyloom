@@ -1,6 +1,6 @@
 name: D1 Backup
 
-# Nightly export of the production D1 database to R2, since D1 has no
+# Nightly encrypted export of the production D1 database to R2, since D1 has no
 # built-in automatic backups (see DEPLOY.md). Runs independently of the
 # CI/deploy pipeline so a failing app build never blocks a backup.
 on:
@@ -30,14 +30,29 @@ jobs:
           KV_NAMESPACE_ID: ${{ secrets.KV_NAMESPACE_ID }}
           APP_URL: ${{ vars.APP_URL }}
           ENGINE_URL: ${{ vars.ENGINE_URL }}
-      - name: Export database
+      - name: Export, encrypt and upload database
         working-directory: apps/worker
         run: |
           set -euo pipefail
+          if [ -z "${BACKUP_ENCRYPTION_KEY:-}" ]; then
+            echo "::error::BACKUP_ENCRYPTION_KEY secret is not set; refusing to upload an unencrypted database backup."
+            exit 1
+          fi
+          BUCKET="${BACKUP_R2_BUCKET:-whatsapp-ai-backups}"
           FILE="d1-$(date +%Y%m%d-%H%M%S).sql"
+          trap 'rm -f "$FILE" "$FILE.enc"' EXIT
           pnpm exec wrangler d1 export whatsapp-ai --remote --output "$FILE"
-          pnpm exec wrangler r2 object put "whatsapp-ai-media/backups/$FILE" --file "$FILE"
-          echo "Backed up to r2://whatsapp-ai-media/backups/$FILE"
+          node ../../scripts/config.mjs --encrypt-file "$FILE" "$FILE.enc"
+          # Dedicated bucket, never bound to a Worker. Create it and its
+          # expiry rule on first run; both are no-ops once they exist.
+          pnpm exec wrangler r2 bucket create "$BUCKET" >/dev/null 2>&1 || true
+          pnpm exec wrangler r2 bucket lifecycle add "$BUCKET" expire-d1-backups backups/ \
+            --expire-days "${BACKUP_RETENTION_DAYS:-30}" --force >/dev/null 2>&1 || true
+          pnpm exec wrangler r2 object put "$BUCKET/backups/$FILE.enc" --file "$FILE.enc" --remote
+          echo "Backed up to r2://$BUCKET/backups/$FILE.enc"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          BACKUP_R2_BUCKET: ${{ vars.BACKUP_R2_BUCKET }}
+          BACKUP_RETENTION_DAYS: ${{ vars.BACKUP_RETENTION_DAYS }}
