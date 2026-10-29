@@ -386,4 +386,23 @@ describe.skipIf(!sqlite)("findOrCreateContact with a split @lid / phone-jid cont
     expect(row.phone_number).toBe("15550001111");
     expect(row.lid).toBe("99887766@lid");
   });
+
+  it("prefers the phone-jid row even when the @lid row already has the phone number", async () => {
+    const { db, raw } = makeDb();
+    raw.exec(
+      `INSERT INTO contacts (id, workspace_id, wa_session_id, jid, lid, phone_number) VALUES ('c_lid', 'ws1', 's1', '99887766@lid', '99887766@lid', '15550001111')`
+    );
+    raw.exec(
+      `INSERT INTO contacts (id, workspace_id, wa_session_id, jid) VALUES ('c_pn', 'ws1', 's1', '15550001111@s.whatsapp.net')`
+    );
+
+    const res = await findOrCreateContact(db, "ws1", "s1", {
+      jid: "15550001111@s.whatsapp.net",
+      phoneNumber: "15550001111",
+    });
+
+    expect(res.id).toBe("c_pn");
+    const lidRow = raw.prepare(`SELECT jid FROM contacts WHERE id = 'c_lid'`).get() as any;
+    expect(lidRow.jid).toBe("99887766@lid");
+  });
 });

@@ -71,22 +71,26 @@ export async function findOrCreateContact(
   const lid = data.lid ?? (isLidJid(data.jid) ? data.jid : null);
   const displayName = data.name || data.notify || undefined;
 
-  // 1. Phone number — the durable identity — wins if we have one. Also match
-  //    a row that already holds the phone jid but has no phone_number yet:
-  //    otherwise step 2 finds the @lid row and renaming it onto the phone
-  //    jid below fails contacts_session_jid_idx, dropping the message.
-  let existing = phoneNumber
+  // 0. A row that already holds this exact phone jid wins. The same person
+  //    can also have an @lid row (possibly with the phone number filled in);
+  //    picking that one and renaming its jid onto this jid below would fail
+  //    contacts_session_jid_idx and drop the whole message.
+  let existing = !isLidJid(data.jid)
     ? await db
         .select({ id: contacts.id, jid: contacts.jid, lid: contacts.lid })
         .from(contacts)
-        .where(
-          and(
-            eq(contacts.waSessionId, waSessionId),
-            or(eq(contacts.phoneNumber, phoneNumber), eq(contacts.jid, `${phoneNumber}@s.whatsapp.net`))
-          )
-        )
+        .where(and(eq(contacts.waSessionId, waSessionId), eq(contacts.jid, data.jid)))
         .get()
     : undefined;
+
+  // 1. Phone number — the durable identity — wins if we have one.
+  if (!existing && phoneNumber) {
+    existing = await db
+      .select({ id: contacts.id, jid: contacts.jid, lid: contacts.lid })
+      .from(contacts)
+      .where(and(eq(contacts.waSessionId, waSessionId), eq(contacts.phoneNumber, phoneNumber)))
+      .get();
+  }
 
   // 2. Next best: the @lid this event carries, if we've seen it before.
   if (!existing && lid) {
