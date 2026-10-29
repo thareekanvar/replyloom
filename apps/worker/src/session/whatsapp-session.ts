@@ -2,6 +2,7 @@ import "../protobuf-patch";
 import { makeWASocket, DisconnectReason, initAuthCreds, Browsers, BufferJSON } from "@whiskeysockets/baileys";
 import type { AuthenticationState, AuthenticationCreds, SignalKeyStore, WASocket } from "@whiskeysockets/baileys";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
+import QRCode from "qrcode";
 import { createDb,  and, eq, sql, messages, conversations, contacts, waSessions } from "@workspace/db";
 import type {Db} from "@workspace/db";
 import type { Env } from "../index";
@@ -680,11 +681,15 @@ export class WhatsAppSession implements DurableObject {
     // ── GET / ──
     if (request.method === "GET" && url.pathname === "/") {
       await this.ensureInit();
+      const qrSvg = this.qr
+        ? await QRCode.toString(this.qr, { type: "svg", width: 300, margin: 2 }).catch(() => null)
+        : null;
       return Response.json(
         {
           sessionId: this.state.id.name,
           connection: this.connectionState,
           qr: this.qr,
+          qrSvg,
           user: this.sessionUser,
           hasSocket: !!this.socket,
           // Onboarding choices made at link time -- shown read-only in the
@@ -699,49 +704,55 @@ export class WhatsAppSession implements DurableObject {
 
     // ── GET /qr ──
     // Serves a single static shell that polls GET / (JSON, same-origin, no
-    // reload) every 3s and redraws the canvas only when the qr string
-    // actually changes. This avoids the old approach's failure mode: a
-    // full `location.reload()` every 15s could land right as WhatsApp
-    // rotates the pairing ref (WA rotates it roughly every 18-20s after an
-    // initial ~60s window), momentarily showing a code that's about to be
-    // (or just was) invalidated server-side -- which WhatsApp reports to
-    // the phone as "check your connection and try again" rather than a
-    // clear "expired QR" message. Polling in place removes that race
-    // (3s << the ~18-20s rotation window) and also survives a transient
-    // failure to load the qrcode.js CDN script on any single poll.
+    // reload) every 3s and updates the server-rendered SVG image only when
+    // the qr string actually changes. Using the bundled `qrcode` package
+    // server-side eliminates third-party CDN script loading (jsDelivr).
     if (request.method === "GET" && url.pathname === "/qr") {
       await this.ensureInit();
+      const safeName = (this.state.id.name ?? "").replace(
+        /[&<>"']/g,
+        (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch
+      );
+      const initialQrSvg = this.qr
+        ? await QRCode.toString(this.qr, { type: "svg", width: 280, margin: 2 })
+        : null;
+      const initialImgSrc = initialQrSvg
+        ? `data:image/svg+xml;utf8,${encodeURIComponent(initialQrSvg)}`
+        : "";
+      const initialDisplay = initialQrSvg ? "" : "display:none;";
+      const initialStatus = initialQrSvg
+        ? "Scan with WhatsApp -> Linked Devices -> Link a Device"
+        : "Loading...";
       return new Response(
-        `<!DOCTYPE html><html><head>
-          <script src="https://cdn.jsdelivr.net/npm/qrcode@1/build/qrcode.min.js"></script>
-        </head><body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif">
-          <h2>WhatsApp Session: ${this.state.id.name}</h2>
-          <p id="status">Loading...</p>
-          <canvas id="qr" style="display:none"></canvas>
+        `<!DOCTYPE html><html><head><meta charset="utf-8"><title>WhatsApp Session QR</title></head><body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif">
+          <h2>WhatsApp Session: ${safeName}</h2>
+          <p id="status">${initialStatus}</p>
+          <img id="qr" alt="WhatsApp QR code" width="300" height="300" src="${initialImgSrc}" style="${initialDisplay}border-radius:12px;border:1px solid #e5e7eb" />
           <p style="color:#888;margin-top:1rem">This page updates itself automatically -- leave it open.</p>
           <script>
-            let lastQr = null;
+            let lastQr = ${JSON.stringify(this.qr).replace(/</g, "\\u003c")};
+            const statusUrl = window.location.pathname.replace(/\\/qr\\/?$/, '') || '/';
             async function poll() {
               try {
-                const res = await fetch('./', { cache: 'no-store' });
+                const res = await fetch(statusUrl, { cache: 'no-store' });
                 const data = await res.json();
                 const statusEl = document.getElementById('status');
-                const canvasEl = document.getElementById('qr');
+                const imgEl = document.getElementById('qr');
                 if (data.connection === 'connected') {
                   statusEl.textContent = 'Connected as ' + (data.user || '');
-                  canvasEl.style.display = 'none';
+                  imgEl.style.display = 'none';
                   return; // stop polling once connected
                 }
-                if (data.qr) {
+                if (data.qr && data.qrSvg) {
                   statusEl.textContent = 'Scan with WhatsApp -> Linked Devices -> Link a Device';
-                  canvasEl.style.display = '';
-                  if (data.qr !== lastQr && window.QRCode) {
+                  imgEl.style.display = '';
+                  if (data.qr !== lastQr) {
                     lastQr = data.qr;
-                    QRCode.toCanvas(canvasEl, data.qr, { width: 300, margin: 2 });
+                    imgEl.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(data.qrSvg);
                   }
                 } else {
                   statusEl.textContent = 'State: ' + data.connection + ' -- waiting for QR...';
-                  canvasEl.style.display = 'none';
+                  imgEl.style.display = 'none';
                 }
               } catch (e) {
                 document.getElementById('status').textContent = 'Reconnecting to server...';
@@ -753,7 +764,13 @@ export class WhatsAppSession implements DurableObject {
           </script>
         </body></html>`,
         {
-          headers: { "Content-Type": "text/html", "Cache-Control": "no-store" },
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy":
+              "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",
+          },
         }
       );
     }
@@ -868,6 +885,15 @@ export class WhatsAppSession implements DurableObject {
       // so this reconnect behaves like a fresh history fetch again.
       if (body.force && !this.skipHistorySync) {
         this.resetHistorySyncMarkers();
+      }
+      // If this session never completed initial login (no sessionUser), wipe
+      // any half-paired creds.me left from an aborted QR scan so Baileys
+      // issues a fresh QR instead of looping 428 on an unregistered device.
+      if (!this.sessionUser) {
+        try {
+          this.state.storage.sql.exec("DELETE FROM wa_creds");
+          this.state.storage.sql.exec("DELETE FROM wa_keys");
+        } catch {}
       }
       // A manual (re)connect always does the full group refetch, bypassing
       // the reconnect throttle.
@@ -2312,16 +2338,18 @@ export class WhatsAppSession implements DurableObject {
       // recorded on the companion device when they asked for history.
       const wantHistory = !this.skipHistorySync;
       const hasPaired = !!authState.creds.me;
-      const useDesktopProfile = wantHistory && hasPaired;
       this.log(
         "info",
-        `socket profile: hasPaired=${hasPaired} wantHistory=${wantHistory} useDesktopProfile=${useDesktopProfile}`
+        `socket profile: hasPaired=${hasPaired} wantHistory=${wantHistory}`
       );
       this.socket = makeWASocket({
         auth: authState,
         version: waVersion,
         printQRInTerminal: false,
-        browser: useDesktopProfile ? Browsers.macOS("Desktop") : Browsers.macOS("Chrome"),
+        // Keep Chrome (WEB_BROWSER) consistently across registration and
+        // post-pairing 515 login; switching to Desktop (DARWIN) after
+        // registering as Chrome triggers WhatsApp 428 Connection Terminated.
+        browser: Browsers.macOS("Chrome"),
         syncFullHistory: wantHistory,
         // Default Baileys filter rejects FULL history; when the user asked
         // to import history, accept every sync type including FULL. Must not
