@@ -333,7 +333,13 @@ export const createWebhook = createServerFn({ method: "POST" })
     withSafeErrors(async ({ data }) => {
       await requirePermission(data.workspaceId, "manage_settings")
       const safe = await assertSafeOutboundUrlWithDns(data.url)
-      if (!safe.ok) throw new UserFacingError(`Webhook URL rejected: ${safe.error}`)
+      if (!safe.ok) {
+        throw new UserFacingError(
+          safe.retryable
+            ? "Couldn't verify the webhook URL's DNS right now. Please try again."
+            : `Webhook URL rejected: ${safe.error}`
+        )
+      }
       if (safe.url.protocol !== "https:") throw new UserFacingError("Webhook URLs must use https://")
       const db = getDb()
       const secret = crypto.randomUUID().replace(/-/g, "")

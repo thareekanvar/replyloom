@@ -146,9 +146,14 @@ export async function executeTool(
   const tool = tools.find((t) => t.name === name);
   if (!tool) return `Tool "${name}" is not available for this workspace.`;
 
-  // SSRF + DNS rebinding: validated at save time too, re-checked here via DoH; never follow redirects.
+  // SSRF: validated at save time too, re-checked here via DoH (reduces DNS
+  // rebinding); never follow redirects.
   const safeUrl = await assertSafeOutboundUrlWithDns(tool.url);
-  if (!safeUrl.ok) return `Tool "${name}" has an unsafe URL and was skipped.`;
+  if (!safeUrl.ok) {
+    return safeUrl.retryable
+      ? `Tool "${name}" could not be reached right now (DNS lookup failed).`
+      : `Tool "${name}" has an unsafe URL and was skipped.`;
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TOOL_TIMEOUT_MS);
@@ -213,6 +218,9 @@ async function findCustomerContact(ctx: AgentContext) {
   const conds = [];
   if (ctx.customerPhone) conds.push(eq(contacts.phoneNumber, ctx.customerPhone));
   if (lookupJid && !lookupJid.endsWith("@g.us")) conds.push(eq(contacts.jid, lookupJid));
+  // No phone and no JID: nothing identifies the customer, so don't match an
+  // arbitrary contact of the workspace.
+  if (conds.length === 0) return undefined;
   const matchCond = conds.length === 1 ? conds[0] : or(...conds);
   const where = and(eq(contacts.workspaceId, ctx.workspaceId), matchCond);
   return db.select().from(contacts).where(where).limit(1).get();

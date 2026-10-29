@@ -616,7 +616,7 @@ async function route(request: Request, env: Env): Promise<Response> {
         if (scopeError) return scopeError;
         const urlCheck = await assertSafeOutboundUrlWithDns(toolUrl);
         if (!urlCheck.ok) {
-          return Response.json({ ok: false, error: urlCheck.error }, { status: 400 });
+          return Response.json({ ok: false, error: urlCheck.error }, { status: urlCheck.retryable ? 503 : 400 });
         }
         const db = createDb(env.DB);
         const params = typeof parameters === "string" ? parameters : JSON.stringify(parameters ?? {});

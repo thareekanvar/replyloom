@@ -128,11 +128,14 @@ async function signPayload(secret: string, body: string): Promise<string> {
 
 async function deliver(db: Db, hook: { id: string; url: string; secret: string }, deliveryId: string, body: string) {
   try {
-    // Re-checked at delivery time with live DoH resolution (defends against
-    // DNS rebinding and rows created/edited directly in D1).
+    // Re-checked at delivery time with live DoH resolution (reduces DNS
+    // rebinding and catches rows created/edited directly in D1).
     const safe = await assertSafeOutboundUrlWithDns(hook.url);
     if (!safe.ok) {
-      await db.update(webhookDeliveries).set({ status: "dead" }).where(eq(webhookDeliveries.id, deliveryId));
+      // A transient DNS failure goes through the normal retry budget; only a
+      // URL found unsafe is dead immediately.
+      const status = safe.retryable ? failedStatus() : "dead";
+      await db.update(webhookDeliveries).set({ status }).where(eq(webhookDeliveries.id, deliveryId));
       return;
     }
     const signature = await signPayload(hook.secret, body);

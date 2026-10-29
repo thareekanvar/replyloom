@@ -1,6 +1,8 @@
-/** SSRF & DNS-rebinding guard for user-supplied outbound URLs (webhooks, agent tools). */
+/** SSRF guard (with a DNS-rebinding check) for user-supplied outbound URLs (webhooks, agent tools). */
 export type SafeUrlOk = { ok: true; url: URL; resolvedIps?: string[] };
-export type SafeUrlErr = { ok: false; error: string };
+/** `retryable` marks a lookup that failed for transient reasons (DoH error,
+ * timeout, no answer), not a URL found to be unsafe. */
+export type SafeUrlErr = { ok: false; error: string; retryable?: boolean };
 
 export interface SafeUrlDnsOptions {
   /** Custom fetch implementation for DoH queries (used in unit tests). */
@@ -312,8 +314,12 @@ const dnsCache = new Map<string, { resolvedIps: string[]; expiresAt: number }>()
 /**
  * Validates an outbound URL with both static checks (`assertSafeOutboundUrl`)
  * and live DNS-over-HTTPS (`A` + `AAAA`) resolution via Cloudflare 1.1.1.1 to
- * block DNS rebinding attacks (domains resolving to private/loopback/metadata IPs
- * or returning ultra-low TTL records).
+ * reject domains resolving to private/loopback/metadata IPs or returning
+ * ultra-low TTL records.
+ *
+ * This reduces DNS rebinding but does not prevent it: the caller's `fetch()`
+ * resolves the name again, and an attacker controlling DNS can answer
+ * differently between the two lookups.
  *
  * Verified public resolutions are cached in-memory up to the minimum observed
  * record TTL (capped at 60s) so webhook bursts / retry sweeps stay well within
@@ -366,7 +372,7 @@ export async function assertSafeOutboundUrlWithDns(
   try {
     [aResp, aaaaResp] = await Promise.all([queryType("A"), queryType("AAAA")]);
   } catch {
-    return { ok: false, error: "Failed to verify hostname DNS records" };
+    return { ok: false, error: "Failed to verify hostname DNS records", retryable: true };
   }
 
   const answers = [...(aResp.Answer ?? []), ...(aaaaResp.Answer ?? [])];
@@ -410,7 +416,7 @@ export async function assertSafeOutboundUrlWithDns(
   }
 
   if (resolvedIps.length === 0) {
-    return { ok: false, error: "URL hostname did not resolve to any public IP address" };
+    return { ok: false, error: "URL hostname did not resolve to any public IP address", retryable: true };
   }
 
   if (useCache) {
